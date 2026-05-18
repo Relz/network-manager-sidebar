@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -x "$HERE/build/nm-sidebar" ]; then
+  exec "$HERE/build/nm-sidebar" "$@"
+fi
+
+printf '%s\n' 'nm-sidebar: native binary not built; run meson setup build && meson compile -C build' >&2
+exit 1

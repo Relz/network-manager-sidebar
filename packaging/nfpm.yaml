@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://nfpm.goreleaser.com/schema.json
+name: nm-sidebar
+arch: "${PACKAGE_ARCH}"
+platform: linux
+version: "${PACKAGE_VERSION}"
+version_schema: semver
+release: "${PACKAGE_RELEASE}"
+section: net
+priority: optional
+maintainer: "Relz <relz0071@gmail.com>"
+description: |
+  GTK4/libadwaita NetworkManager sidebar for Wayland desktops, usable from the CLI, app launchers, hotkeys, or Waybar.
+vendor: nm-sidebar
+homepage: "${PACKAGE_HOMEPAGE}"
+license: GPL-3.0-or-later
+contents:
+  - src: ./package-root/usr/bin/nm-sidebar
+    dst: /usr/bin/nm-sidebar
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./package-root/usr/libexec/nm-sidebar/nm-sidebar-gui
+    dst: /usr/libexec/nm-sidebar/nm-sidebar-gui
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./package-root/usr/share/nm-sidebar/nm-sidebar.css
+    dst: /usr/share/nm-sidebar/nm-sidebar.css
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  - src: ./README.md
+    dst: /usr/share/doc/nm-sidebar/README.md
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  - src: ./LICENSE
+    dst: /usr/share/doc/nm-sidebar/LICENSE
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+archlinux:
+  packager: "Relz <relz0071@gmail.com>"
+overrides:
+  deb:
+    depends:
+      - libglib2.0-0
+      - libgtk-4-1
+      - libadwaita-1-0
+      - libnm0
+      - libgtk4-layer-shell0
+      - network-manager
+      - network-manager-gnome
+  rpm:
+    depends:
+      - glib2
+      - gtk4
+      - libadwaita
+      - NetworkManager
+      - NetworkManager-libnm
+      - gtk4-layer-shell
+      - nm-connection-editor
+  archlinux:
+    depends:
+      - glib2
+      - gtk4
+      - libadwaita
+      - networkmanager
+      - gtk4-layer-shell
+      - nm-connection-editor
+  apk:
+    depends:
+      - glib
+      - gtk4.0
+      - libadwaita
+      - networkmanager
+      - gtk4-layer-shell
+      - network-manager-applet

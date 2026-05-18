@@ -1,0 +1,172 @@
+name: Build native packages
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:26.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install native build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y \
+            build-essential \
+            meson \
+            ninja-build \
+            pkg-config \
+            libglib2.0-dev \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            libnm-dev \
+            libgraphene-1.0-dev \
+            libgtk4-layer-shell-dev
+
+      - name: Sync Meson version from tag
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: meson rewrite kwargs set project / version "$PACKAGE_VERSION"
+
+      - name: Build and stage Meson artifacts
+        run: |
+          meson setup build --prefix=/usr --libdir=lib --buildtype=release
+          meson compile -C build
+          DESTDIR="${PWD}/package-root" meson install -C build
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Install nFPM
+        shell: bash
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          echo "${HOME}/go/bin" >> "${GITHUB_PATH}"
+          "${HOME}/go/bin/nfpm" --version
+
+      - name: Build packages
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+          PACKAGE_RELEASE: "1"
+          PACKAGE_ARCH: amd64
+          PACKAGE_HOMEPAGE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          mkdir -p dist
+          nfpm package --config packaging/nfpm.yaml --packager deb --target dist/
+          nfpm package --config packaging/nfpm.yaml --packager rpm --target dist/
+          nfpm package --config packaging/nfpm.yaml --packager archlinux --target dist/
+          nfpm package --config packaging/nfpm.yaml --packager apk --target dist/
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: nm-sidebar-native-packages
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: nm-sidebar-native-packages
+          path: dist
+
+      - name: Attach packages to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+  aur:
+    needs: packages
+    runs-on: ubuntu-latest
+    env:
+      AUR_PACKAGE_NAME: nm-sidebar
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip AUR publish when secret is missing
+        if: ${{ env.AUR_SSH_PRIVATE_KEY == '' }}
+        run: printf '%s\n' 'AUR_SSH_PRIVATE_KEY is not configured; skipping AUR publish.'
+
+      - name: Generate AUR metadata
+        if: ${{ env.AUR_SSH_PRIVATE_KEY != '' }}
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p aur-work
+          sed \
+            -e "s|@PKGVER@|${PACKAGE_VERSION}|g" \
+            -e "s|@GITHUB_SERVER_URL@|${GITHUB_SERVER_URL}|g" \
+            -e "s|@GITHUB_REPOSITORY@|${GITHUB_REPOSITORY}|g" \
+            packaging/aur/PKGBUILD.in > aur-work/PKGBUILD
+          docker run --rm \
+            -v "${PWD}/aur-work:/aur-work" \
+            -w /aur-work \
+            archlinux:base-devel \
+            bash -lc '
+              pacman -Syu --noconfirm pacman-contrib
+              useradd -m builder
+              chown -R builder:builder /aur-work
+              su builder -c "cd /aur-work && updpkgsums && makepkg --printsrcinfo > .SRCINFO"
+            '
+
+      - name: Configure AUR SSH
+        if: ${{ env.AUR_SSH_PRIVATE_KEY != '' }}
+        shell: bash
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$HOME/.ssh/aur"
+          chmod 600 "$HOME/.ssh/aur"
+          ssh-keyscan -H aur.archlinux.org >> "$HOME/.ssh/known_hosts"
+
+      - name: Publish AUR metadata
+        if: ${{ env.AUR_SSH_PRIVATE_KEY != '' }}
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur -o IdentitiesOnly=yes"
+          git clone "ssh://aur@aur.archlinux.org/${AUR_PACKAGE_NAME}.git" aur-repo
+          cp aur-work/PKGBUILD aur-work/.SRCINFO aur-repo/
+          git -C aur-repo config user.name "github-actions[bot]"
+          git -C aur-repo config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C aur-repo add PKGBUILD .SRCINFO
+          if git -C aur-repo diff --cached --quiet; then
+            printf '%s\n' 'AUR package metadata already up to date.'
+            exit 0
+          fi
+          git -C aur-repo commit -m "Update to ${PACKAGE_VERSION}"
+          git -C aur-repo push origin HEAD:master

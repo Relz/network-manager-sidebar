@@ -1,0 +1,86 @@
+.nm-sidebar-window,
+.nm-sidebar-surface {
+  background: transparent;
+}
+
+dialog.nm-sidebar-dialog floating-sheet > dimming,
+dialog.nm-sidebar-dialog bottom-sheet > dimming {
+  background-color: rgba(0, 0, 0, 0.42);
+}
+
+.nm-sidebar-panel {
+  background: @window_bg_color;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-left: 1px solid alpha(@window_fg_color, 0.12);
+  margin: 8px;
+}
+
+.network-scroll-fade {
+  margin: 0;
+}
+
+.network-scroll-fade-top {
+  background: linear-gradient(to bottom, @window_bg_color 0%, @window_bg_color 28%, alpha(@window_bg_color, 0.72) 58%, alpha(@window_bg_color, 0));
+}
+
+.network-scroll-fade-bottom {
+  background: linear-gradient(to top, @window_bg_color 0%, @window_bg_color 28%, alpha(@window_bg_color, 0.72) 58%, alpha(@window_bg_color, 0));
+}
+
+.network-subgroup {
+  margin-top: 8px;
+}
+
+.network-subgroup.network-subgroup-separated {
+  margin-top: 18px;
+}
+
+.network-subsection-label {
+  margin: 0 12px 2px;
+  color: alpha(@window_fg_color, 0.68);
+  font-weight: 700;
+}
+
+.active-connection-row {
+  background: alpha(@accent_bg_color, 0.14);
+}
+
+.active-connection-row:hover {
+  background: alpha(@accent_bg_color, 0.20);
+}
+
+@keyframes connecting-pulse {
+  0%, 100% {
+    background: alpha(@accent_bg_color, 0);
+  }
+
+  50% {
+    background: alpha(@accent_bg_color, 0.14);
+  }
+}
+
+.connecting-connection-row {
+  animation: connecting-pulse 1.4s ease-in-out infinite;
+  background: alpha(@accent_bg_color, 0.14);
+}
+
+.connecting-connection-row:hover {
+  background: alpha(@accent_bg_color, 0.20);
+}
+
+.failed-connection-row {
+  background: alpha(@error_bg_color, 0.14);
+}
+
+.failed-connection-row:hover {
+  background: alpha(@error_bg_color, 0.20);
+}
+
+.disconnected-connection-row {
+  background: alpha(@window_fg_color, 0.06);
+}
+
+.disconnected-connection-row:hover {
+  background: alpha(@window_fg_color, 0.10);
+}
