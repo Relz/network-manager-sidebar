@@ -22,17 +22,19 @@ source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 _github_repo='@GITHUB_REPOSITORY@'
-_source_dir="${_github_repo##*/}-$pkgver"
+_source_dir="$srcdir/${_github_repo##*/}-$pkgver"
+_build_dir="$srcdir/build-$pkgver-$pkgrel"
 
 build() {
-  meson setup build "$_source_dir" \
+  rm -rf "$_build_dir"
+  meson setup "$_build_dir" "$_source_dir" \
     --prefix=/usr \
     --libdir=lib \
     --libexecdir=libexec \
     --buildtype=plain
-  meson compile -C build
+  meson compile -C "$_build_dir"
 }
 
 package() {
-  DESTDIR="$pkgdir" meson install -C build
+  DESTDIR="$pkgdir" meson install -C "$_build_dir"
 }
