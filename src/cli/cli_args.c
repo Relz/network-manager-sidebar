@@ -14,6 +14,8 @@ command_for_option(const char *option)
     return NETWORK_SIDEBAR_COMMAND_HIDE;
   if (g_strcmp0(option, "--quit") == 0)
     return NETWORK_SIDEBAR_COMMAND_QUIT;
+  if (g_strcmp0(option, "--reload-css") == 0)
+    return NETWORK_SIDEBAR_COMMAND_RELOAD_CSS;
   if (g_strcmp0(option, "--background") == 0)
     return NETWORK_SIDEBAR_COMMAND_BACKGROUND;
   return NULL;
@@ -23,7 +25,7 @@ static void
 print_help(const char *program)
 {
   g_print("usage: %s [-h] [--toggle | --show | --hide | --quit |\n", program);
-  g_print("                       --background]\n\n");
+  g_print("                       --reload-css | --background]\n\n");
   g_print("%s for Wayland desktops\n\n", NETWORK_SIDEBAR_APP_NAME);
   g_print("options:\n");
   g_print("  -h, --help    show this help message and exit\n");
@@ -31,6 +33,7 @@ print_help(const char *program)
   g_print("  --show        show sidebar\n");
   g_print("  --hide        hide sidebar\n");
   g_print("  --quit        quit the running instance\n");
+  g_print("  --reload-css  reload user CSS in the running instance\n");
   g_print("  --background  verify an existing instance or start one without showing the\n");
   g_print("                sidebar\n\n");
   g_print("Running without options defaults to --toggle.\n");
@@ -40,7 +43,7 @@ static char *
 usage_error(const char *program, const char *detail)
 {
   return g_strdup_printf("usage: %s [-h] [--toggle | --show | --hide | --quit |\n"
-                         "                       --background]\n"
+                         "                       --reload-css | --background]\n"
                          "%s: error: %s",
                          program,
                          program,

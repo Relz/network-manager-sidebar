@@ -202,6 +202,15 @@ handle_application_command(NetworkSidebarGuiApp *self, const char *command, gboo
     }
     return is_remote ? 0 : 1;
   }
+  if (g_strcmp0(command, NETWORK_SIDEBAR_COMMAND_RELOAD_CSS) == 0) {
+    if (is_remote)
+      network_sidebar_reload_user_css(NULL, NULL);
+    else {
+      g_printerr("nm-sidebar: no running instance reached for --%s\n", command);
+      g_application_quit(G_APPLICATION(self->application));
+    }
+    return is_remote ? 0 : 1;
+  }
   if (is_remote) {
     if ((g_strcmp0(command, NETWORK_SIDEBAR_COMMAND_TOGGLE) == 0 || g_strcmp0(command, NETWORK_SIDEBAR_COMMAND_SHOW) == 0) &&
         !ensure_command_server(self, TRUE))
@@ -939,6 +948,8 @@ network_sidebar_gui_app_handle_command(NetworkSidebarGuiApp *self,
     hide_sidebar(self);
   else if (g_strcmp0(normalized_command, NETWORK_SIDEBAR_COMMAND_QUIT) == 0)
     g_application_quit(G_APPLICATION(self->application));
+  else if (g_strcmp0(normalized_command, NETWORK_SIDEBAR_COMMAND_RELOAD_CSS) == 0)
+    network_sidebar_reload_user_css(NULL, NULL);
   else if (g_strcmp0(normalized_command, NETWORK_SIDEBAR_COMMAND_TOGGLE) == 0)
     toggle_sidebar(self);
 

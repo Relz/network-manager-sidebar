@@ -44,10 +44,11 @@ The default command is `--toggle`. Additional commands are:
 ./nm-sidebar --show
 ./nm-sidebar --hide
 ./nm-sidebar --quit
+./nm-sidebar --reload-css
 ./nm-sidebar --background
 ```
 
-`--show`, `--hide`, `--quit`, and the default `--toggle` send commands to an existing background process over a Unix socket. `--background` verifies an existing instance or starts one without showing the sidebar. If no running process is available, `--toggle`, `--show`, and `--background` start the GTK app.
+`--show`, `--hide`, `--quit`, `--reload-css`, and the default `--toggle` send commands to an existing background process over a Unix socket. `--background` verifies an existing instance or starts one without showing the sidebar. If no running process is available, `--toggle`, `--show`, and `--background` start the GTK app. `--reload-css` requires an existing running instance.
 
 The socket is created at `$XDG_RUNTIME_DIR/nm-sidebar.sock`, with a fallback under `/tmp/nm-sidebar-$UID/` when `XDG_RUNTIME_DIR` is not set.
 
@@ -67,7 +68,7 @@ On multi-output setups, `nm-sidebar` uses Waybar's `WAYBAR_OUTPUT_NAME` environm
 
 GitHub Actions builds native packages with Meson and nFPM for Debian/Ubuntu (`.deb`), Fedora/RHEL-family systems (`.rpm`), Arch Linux (`.pkg.tar.zst`), and Alpine Linux (`.apk`). Packages install the native CLI as `/usr/bin/nm-sidebar`, the GUI helper as `/usr/libexec/nm-sidebar/nm-sidebar-gui`, and application data under `/usr/share/nm-sidebar/`.
 
-Users can override packaged styles by creating `$XDG_CONFIG_HOME/nm-sidebar/nm-sidebar.css`. If `XDG_CONFIG_HOME` is unset, the app falls back to `~/.config/nm-sidebar/nm-sidebar.css`.
+Users can override packaged styles by creating `$XDG_CONFIG_HOME/nm-sidebar/nm-sidebar.css`. If `XDG_CONFIG_HOME` is unset, the app falls back to `~/.config/nm-sidebar/nm-sidebar.css`. Use `nm-sidebar --reload-css` to apply user CSS changes to the running instance without quitting it.
 
 GitHub Actions also publishes AUR source metadata for `nm-sidebar` when the `AUR_SSH_PRIVATE_KEY` GitHub secret is configured. It renders `packaging/aur/PKGBUILD.in` with the tag version and repository URL, computes the source checksum and `.SRCINFO` in an Arch Linux container, then pushes `PKGBUILD` and `.SRCINFO` to `ssh://aur@aur.archlinux.org/nm-sidebar.git`.
 
