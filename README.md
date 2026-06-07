@@ -72,7 +72,7 @@ Users can override packaged styles by creating `$XDG_CONFIG_HOME/nm-sidebar/nm-s
 
 GitHub Actions also publishes AUR source metadata for `nm-sidebar` when the `AUR_SSH_PRIVATE_KEY` GitHub secret is configured. It renders `packaging/aur/PKGBUILD.in` with the tag version and repository URL, computes the source checksum and `.SRCINFO` in an Arch Linux container, then pushes `PKGBUILD` and `.SRCINFO` to `ssh://aur@aur.archlinux.org/nm-sidebar.git`.
 
-Native packages rely on distro-provided GLib, GTK4, libadwaita, NetworkManager/libnm, and `gtk4-layer-shell` runtime libraries. RPM dependency names are Fedora/RHEL-family oriented; other RPM distributions may need adjusted metadata.
+Native packages rely on distro-provided GLib, GTK4, libadwaita, NetworkManager/libnm, `gtk4-layer-shell`, and `nm-connection-editor`. The editor dependency is named differently by distro: Arch Linux and Fedora/RHEL-family packages provide it as `nm-connection-editor`, Debian/Ubuntu provide it through `network-manager-gnome`, and Alpine provides `/usr/bin/nm-connection-editor` through `network-manager-applet`. RPM dependency names are Fedora/RHEL-family oriented; other RPM distributions may need adjusted metadata.
 
 ## Project Layout
 
