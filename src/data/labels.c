@@ -458,6 +458,8 @@ network_sidebar_wifi_profile_subtitle(NMRemoteConnection *connection)
   NMSettingWireless *wireless = nm_connection_get_setting_wireless(NM_CONNECTION(connection));
   NMSettingWirelessSecurity *security = nm_connection_get_setting_wireless_security(NM_CONNECTION(connection));
   NMSettingConnection *setting_connection = nm_connection_get_setting_connection(NM_CONNECTION(connection));
+  const char *connection_id = nm_connection_get_id(NM_CONNECTION(connection));
+  g_autofree char *connection_name = connection_id != NULL && *connection_id != '\0' ? network_sidebar_display_text(connection_id, "") : NULL;
 
   if (wireless != NULL) {
     GBytes *ssid = nm_setting_wireless_get_ssid(wireless);
@@ -470,8 +472,10 @@ network_sidebar_wifi_profile_subtitle(NMRemoteConnection *connection)
       g_bytes_get_data(ssid, &ssid_length);
     if (ssid_length > 0) {
       g_autofree char *ssid_text = network_sidebar_ssid_text_from_bytes(ssid);
-      g_autofree char *ssid_detail = g_strdup_printf("SSID %s", ssid_text);
-      append_profile_detail(details, ssid_detail);
+      if (g_strcmp0(ssid_text, connection_name) != 0) {
+        g_autofree char *ssid_detail = g_strdup_printf("SSID %s", ssid_text);
+        append_profile_detail(details, ssid_detail);
+      }
     }
     if (bssid != NULL && *bssid != '\0') {
       g_autofree char *bssid_detail = g_strdup_printf("BSSID %s", bssid);

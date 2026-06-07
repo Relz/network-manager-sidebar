@@ -429,9 +429,13 @@ wifi_entry_subtitle(WifiEntry *entry)
     g_autofree char *iface_part = g_strdup_printf("Interface %s", nm_device_get_iface(NM_DEVICE(entry->device)) != NULL ? nm_device_get_iface(NM_DEVICE(entry->device)) : "unknown");
     append_subtitle_part(subtitle, iface_part);
   }
-  if (entry->saved_connections != NULL && entry->saved_connections->len > 1) {
-    g_autofree char *profiles = g_strdup_printf("%u saved profiles", entry->saved_connections->len);
-    append_subtitle_part(subtitle, profiles);
+  if (entry->saved_connections != NULL) {
+    if (entry->saved_connections->len == 1)
+      append_subtitle_part(subtitle, "Saved");
+    else if (entry->saved_connections->len > 1) {
+      g_autofree char *profiles = g_strdup_printf("%u saved profiles", entry->saved_connections->len);
+      append_subtitle_part(subtitle, profiles);
+    }
   }
   return g_string_free(g_steal_pointer(&subtitle), FALSE);
 }
@@ -552,8 +556,6 @@ saved_profile_row_subtitle(NMRemoteConnection *profile, NMActiveConnection *acti
     append_subtitle_part(subtitle, "Connecting");
   else if (active != NULL)
     append_subtitle_part(subtitle, "Active connection");
-  else
-    append_subtitle_part(subtitle, "Out of range");
 
   append_subtitle_part(subtitle, details);
   return g_string_free(g_steal_pointer(&subtitle), FALSE);
