@@ -11,7 +11,7 @@ depends=(
   'libadwaita'
   'networkmanager'
   'gtk4-layer-shell'
-  'network-manager-applet'
+  'nm-connection-editor'
 )
 makedepends=(
   'meson'
