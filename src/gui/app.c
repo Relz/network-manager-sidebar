@@ -19,6 +19,9 @@
 #include <NetworkManager.h>
 #include <stdio.h>
 
+#define NETWORK_SIDEBAR_SCROLL_RESTORE_ATTEMPTS 8
+#define NETWORK_SIDEBAR_SCROLL_RESTORE_DELAY_MS 16
+
 typedef struct {
   GObject *object;
   gulong handler_id;
@@ -40,6 +43,9 @@ struct _NetworkSidebarGuiApp {
   GtkWidget *content;
   GtkWidget *scroll_fade_top;
   GtkWidget *scroll_fade_bottom;
+  guint scroll_restore_source;
+  guint scroll_restore_attempts;
+  double pending_scroll_value;
   gboolean refreshing;
   gboolean showing_connection_information;
   guint refresh_source;
@@ -65,11 +71,12 @@ static void show_sidebar(NetworkSidebarGuiApp *self);
 static void hide_sidebar(NetworkSidebarGuiApp *self);
 static void toggle_sidebar(NetworkSidebarGuiApp *self);
 static void set_target_output_name(NetworkSidebarGuiApp *self, const char *target_output_name);
-static void refresh_content(NetworkSidebarGuiApp *self);
+static void refresh_content(NetworkSidebarGuiApp *self, gboolean preserve_scroll);
 static void schedule_refresh(NetworkSidebarGuiApp *self, guint delay_ms, gboolean visible_only);
 static gboolean signal_refresh_cb(gpointer user_data);
 static gboolean periodic_refresh_cb(gpointer user_data);
 static void update_scroll_fades(NetworkSidebarGuiApp *self);
+static void cancel_scroll_restore(NetworkSidebarGuiApp *self);
 static void sync_refresh_signals(NetworkSidebarGuiApp *self);
 static void on_nm_refresh_signal(NetworkSidebarGuiApp *self);
 
@@ -265,6 +272,7 @@ on_shutdown(GApplication *application, gpointer user_data)
     g_source_remove(self->periodic_refresh_source);
     self->periodic_refresh_source = 0;
   }
+  cancel_scroll_restore(self);
   g_clear_pointer(&self->refresh_signal_handlers, g_ptr_array_unref);
 
   if (self->server != NULL) {
@@ -602,7 +610,7 @@ on_back_clicked(GtkButton *button, gpointer user_data)
   (void) button;
 
   self->showing_connection_information = FALSE;
-  refresh_content(self);
+  refresh_content(self, FALSE);
 }
 
 static void
@@ -612,7 +620,7 @@ on_info_clicked(GtkButton *button, gpointer user_data)
   (void) button;
 
   self->showing_connection_information = TRUE;
-  refresh_content(self);
+  refresh_content(self, FALSE);
 }
 
 static void
@@ -709,6 +717,86 @@ on_scroll_adjustment_changed(GtkAdjustment *adjustment, gpointer user_data)
 {
   (void) adjustment;
   update_scroll_fades(user_data);
+}
+
+static GtkAdjustment *
+scroll_adjustment(NetworkSidebarGuiApp *self)
+{
+  if (self->scrolled == NULL)
+    return NULL;
+  return gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(self->scrolled));
+}
+
+static double
+current_scroll_value(NetworkSidebarGuiApp *self)
+{
+  GtkAdjustment *adjustment;
+
+  if (self->scroll_restore_source != 0)
+    return self->pending_scroll_value;
+  adjustment = scroll_adjustment(self);
+  return adjustment != NULL ? gtk_adjustment_get_value(adjustment) : 0.0;
+}
+
+static double
+scroll_lower_value(NetworkSidebarGuiApp *self)
+{
+  GtkAdjustment *adjustment = scroll_adjustment(self);
+  return adjustment != NULL ? gtk_adjustment_get_lower(adjustment) : 0.0;
+}
+
+static gboolean
+restore_scroll_cb(gpointer user_data)
+{
+  NetworkSidebarGuiApp *self = user_data;
+  GtkAdjustment *adjustment = scroll_adjustment(self);
+  double lower;
+  double upper;
+  double page_size;
+  double max_value;
+  double value;
+
+  if (adjustment == NULL) {
+    self->scroll_restore_source = 0;
+    self->scroll_restore_attempts = 0;
+    return G_SOURCE_REMOVE;
+  }
+
+  lower = gtk_adjustment_get_lower(adjustment);
+  upper = gtk_adjustment_get_upper(adjustment);
+  page_size = gtk_adjustment_get_page_size(adjustment);
+  max_value = MAX(lower, upper - page_size);
+  value = CLAMP(self->pending_scroll_value, lower, max_value);
+  gtk_adjustment_set_value(adjustment, value);
+  update_scroll_fades(self);
+
+  self->scroll_restore_attempts++;
+  if (max_value >= self->pending_scroll_value - 0.5 ||
+      self->scroll_restore_attempts >= NETWORK_SIDEBAR_SCROLL_RESTORE_ATTEMPTS) {
+    self->scroll_restore_source = 0;
+    self->scroll_restore_attempts = 0;
+    return G_SOURCE_REMOVE;
+  }
+  return G_SOURCE_CONTINUE;
+}
+
+static void
+schedule_scroll_restore(NetworkSidebarGuiApp *self, double value)
+{
+  self->pending_scroll_value = value;
+  self->scroll_restore_attempts = 0;
+  if (self->scroll_restore_source == 0)
+    self->scroll_restore_source = g_timeout_add(NETWORK_SIDEBAR_SCROLL_RESTORE_DELAY_MS, restore_scroll_cb, self);
+}
+
+static void
+cancel_scroll_restore(NetworkSidebarGuiApp *self)
+{
+  if (self->scroll_restore_source == 0)
+    return;
+  g_source_remove(self->scroll_restore_source);
+  self->scroll_restore_source = 0;
+  self->scroll_restore_attempts = 0;
 }
 
 static gboolean
@@ -963,7 +1051,7 @@ refresh_timeout_cb(gpointer user_data)
   self->refresh_source = 0;
   if (self->refresh_visible_only && (self->window == NULL || !gtk_widget_get_visible(self->window)))
     return G_SOURCE_REMOVE;
-  refresh_content(self);
+  refresh_content(self, TRUE);
   return G_SOURCE_REMOVE;
 }
 
@@ -972,7 +1060,7 @@ periodic_refresh_cb(gpointer user_data)
 {
   NetworkSidebarGuiApp *self = user_data;
   if (self->window != NULL && gtk_widget_get_visible(self->window))
-    refresh_content(self);
+    refresh_content(self, TRUE);
   return G_SOURCE_CONTINUE;
 }
 
@@ -982,7 +1070,7 @@ signal_refresh_cb(gpointer user_data)
   NetworkSidebarGuiApp *self = user_data;
   self->signal_refresh_source = 0;
   if (self->window != NULL && gtk_widget_get_visible(self->window))
-    refresh_content(self);
+    refresh_content(self, TRUE);
   return G_SOURCE_REMOVE;
 }
 
@@ -996,11 +1084,14 @@ schedule_refresh(NetworkSidebarGuiApp *self, guint delay_ms, gboolean visible_on
 }
 
 static void
-refresh_content(NetworkSidebarGuiApp *self)
+refresh_content(NetworkSidebarGuiApp *self, gboolean preserve_scroll)
 {
+  double scroll_value;
+
   if (self->content == NULL || self->client == NULL || self->actions == NULL)
     return;
 
+  scroll_value = preserve_scroll ? current_scroll_value(self) : scroll_lower_value(self);
   sync_refresh_signals(self);
   self->refreshing = TRUE;
   gtk_switch_set_active(GTK_SWITCH(self->networking_switch), nm_client_networking_get_enabled(self->client));
@@ -1022,5 +1113,6 @@ refresh_content(NetworkSidebarGuiApp *self)
     network_sidebar_add_wifi_group(GTK_BOX(self->content), self->client, self->actions);
   }
   self->refreshing = FALSE;
+  schedule_scroll_restore(self, scroll_value);
   update_scroll_fades(self);
 }
