@@ -25,12 +25,9 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Install native build dependencies
-        env:
-          DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update
           apt-get install -y \
-            build-essential \
             meson \
             ninja-build \
             pkg-config \
