@@ -673,9 +673,9 @@ add_unmatched_saved_profile_rows(GtkListBox *list,
 }
 
 static void
-add_empty_saved_row(GtkListBox *list)
+add_empty_saved_row(GtkListBox *list, const char *title)
 {
-  gtk_list_box_append(list, network_sidebar_action_row("No saved Wi-Fi profiles", NULL, NULL));
+  gtk_list_box_append(list, network_sidebar_action_row(title, NULL, NULL));
 }
 
 static void
@@ -697,7 +697,7 @@ add_saved_profiles_only_group(AdwPreferencesGroup *group,
   adw_preferences_group_add(group, saved_box);
   added = add_unmatched_saved_profile_rows(GTK_LIST_BOX(saved_list), client, actions, profiles, NULL);
   if (added == 0)
-    add_empty_saved_row(GTK_LIST_BOX(saved_list));
+    add_empty_saved_row(GTK_LIST_BOX(saved_list), "No saved Wi-Fi profiles");
 }
 
 static void
@@ -847,9 +847,6 @@ network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebar
     if (row_state_preferred(entry->row_state)) {
       add_network_row(GTK_LIST_BOX(connected_list), client, actions, entry);
       connected_count++;
-    } else if (entry->saved_connections != NULL && entry->saved_connections->len > 0) {
-      add_network_row(GTK_LIST_BOX(saved_list), client, actions, entry);
-      saved_count++;
     } else {
       add_network_row(GTK_LIST_BOX(available_list), client, actions, entry);
       available_count++;
@@ -867,7 +864,7 @@ network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebar
   if (available_count == 0)
     gtk_list_box_append(GTK_LIST_BOX(available_list), network_sidebar_action_row("No other networks in range", NULL, NULL));
   if (saved_count == 0)
-    add_empty_saved_row(GTK_LIST_BOX(saved_list));
+    add_empty_saved_row(GTK_LIST_BOX(saved_list), "No saved networks out of range");
 
   gtk_box_append(content, group);
 }
