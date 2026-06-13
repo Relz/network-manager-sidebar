@@ -11,6 +11,7 @@ add_info_row(AdwPreferencesGroup *group, const char *label, const char *value)
   if (value == NULL || *value == '\0')
     return;
   row = network_sidebar_action_row(label, value, NULL);
+  adw_action_row_set_subtitle_selectable(ADW_ACTION_ROW(row), TRUE);
   adw_action_row_set_subtitle_lines(ADW_ACTION_ROW(row), 0);
   adw_preferences_group_add(group, row);
 }

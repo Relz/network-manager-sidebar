@@ -13,7 +13,7 @@ project(
 glib_dep = dependency('glib-2.0')
 gio_dep = dependency('gio-2.0')
 gtk_dep = dependency('gtk4')
-adw_dep = dependency('libadwaita-1')
+adw_dep = dependency('libadwaita-1', version: '>= 1.3')
 nm_dep = dependency('libnm')
 layer_shell_dep = dependency('gtk4-layer-shell-0')
 
