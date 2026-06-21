@@ -99,24 +99,6 @@ meson compile -C build
 build/nm-sidebar --help
 ```
 
-Check CLI wiring through the local launcher:
-
-```sh
-/home/relz/.local/bin/nm-sidebar --help
-```
-
-After changing the Waybar config, reload Waybar with:
-
-```sh
-pkill -SIGUSR2 -x waybar
-```
-
-When a Wayland graphical session is available, smoke-test the sidebar:
-
-```sh
-(./nm-sidebar --show & pid=$!; sleep 2; ./nm-sidebar --quit; wait $pid)
-```
-
 Build a native package locally with nFPM:
 
 ```sh
