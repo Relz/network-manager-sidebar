@@ -575,6 +575,17 @@ on_surface_click_released(GtkGestureClick *gesture, int n_press, double x, doubl
 }
 
 static gboolean
+go_back_to_parent_screen(NetworkSidebarGuiApp *self)
+{
+  if (!self->showing_connection_information)
+    return FALSE;
+
+  self->showing_connection_information = FALSE;
+  refresh_content(self, FALSE);
+  return TRUE;
+}
+
+static gboolean
 on_key_pressed(GtkEventControllerKey *controller,
                guint keyval,
                guint keycode,
@@ -587,7 +598,8 @@ on_key_pressed(GtkEventControllerKey *controller,
   (void) state;
 
   if (keyval == GDK_KEY_Escape) {
-    hide_sidebar(self);
+    if (!go_back_to_parent_screen(self))
+      hide_sidebar(self);
     return TRUE;
   }
   return FALSE;
@@ -609,8 +621,7 @@ on_back_clicked(GtkButton *button, gpointer user_data)
   NetworkSidebarGuiApp *self = user_data;
   (void) button;
 
-  self->showing_connection_information = FALSE;
-  refresh_content(self, FALSE);
+  go_back_to_parent_screen(self);
 }
 
 static void
