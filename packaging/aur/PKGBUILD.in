@@ -5,6 +5,7 @@ pkgdesc='GTK4/libadwaita NetworkManager sidebar for Wayland desktops'
 arch=('x86_64')
 url='@GITHUB_SERVER_URL@/@GITHUB_REPOSITORY@'
 license=('GPL-3.0-or-later')
+keywords=('gtk4' 'layer-shell' 'libadwaita' 'network-manager' 'networkmanager' 'sidebar' 'vpn' 'wayland' 'wifi')
 depends=(
   'glib2'
   'gtk4'
