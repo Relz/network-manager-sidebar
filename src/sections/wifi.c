@@ -408,7 +408,7 @@ append_subtitle_part(GString *subtitle, const char *part)
 }
 
 static char *
-wifi_entry_subtitle(WifiEntry *entry)
+wifi_entry_subtitle(WifiEntry *entry, NMRemoteConnection *saved)
 {
   g_autoptr(GString) subtitle = g_string_new(NULL);
   g_autofree char *signal = g_strdup_printf("Signal %u%%", nm_access_point_get_strength(entry->ap));
@@ -429,28 +429,20 @@ wifi_entry_subtitle(WifiEntry *entry)
     g_autofree char *iface_part = g_strdup_printf("Interface %s", nm_device_get_iface(NM_DEVICE(entry->device)) != NULL ? nm_device_get_iface(NM_DEVICE(entry->device)) : "unknown");
     append_subtitle_part(subtitle, iface_part);
   }
-  if (entry->saved_connections != NULL) {
-    if (entry->saved_connections->len == 1)
-      append_subtitle_part(subtitle, "Saved");
-    else if (entry->saved_connections->len > 1) {
-      g_autofree char *profiles = g_strdup_printf("%u saved profiles", entry->saved_connections->len);
-      append_subtitle_part(subtitle, profiles);
-    }
-  }
+  if (saved != NULL)
+    append_subtitle_part(subtitle, "Saved");
   return g_string_free(g_steal_pointer(&subtitle), FALSE);
 }
 
 static char *
-wifi_entry_title(WifiEntry *entry)
+wifi_entry_title(WifiEntry *entry, NMRemoteConnection *saved, NMActiveConnection *active)
 {
   g_autofree char *ssid = network_sidebar_ap_ssid_text(entry->ap);
 
-  if (entry->active != NULL)
-    return network_sidebar_active_connection_name(entry->active, ssid);
-  if (entry->saved_connections != NULL && entry->saved_connections->len == 1) {
-    NMRemoteConnection *saved = g_ptr_array_index(entry->saved_connections, 0);
+  if (saved != NULL)
     return network_sidebar_connection_name(NM_CONNECTION(saved), ssid);
-  }
+  if (active != NULL)
+    return network_sidebar_active_connection_name(active, ssid);
   return g_steal_pointer(&ssid);
 }
 
@@ -497,6 +489,8 @@ on_wifi_row_activated(GtkListBoxRow *row, gpointer user_data)
 
   if (data->active != NULL)
     network_sidebar_actions_deactivate(data->actions, data->active);
+  else if (data->saved != NULL && data->device != NULL && data->ap != NULL)
+    network_sidebar_actions_activate_saved_wifi_profile_for_ap(data->actions, data->saved, data->device, data->ap);
   else if (data->device != NULL && data->ap != NULL)
     network_sidebar_actions_connect_wifi(data->actions, data->device, data->ap);
   else if (data->saved != NULL)
@@ -519,14 +513,6 @@ on_wifi_remove_clicked(GtkButton *button, gpointer user_data)
   (void) button;
   if (data->saved != NULL)
     network_sidebar_actions_confirm_delete_connection(data->actions, data->saved, "Wi-Fi");
-}
-
-static void
-on_wifi_profiles_clicked(GtkButton *button, gpointer user_data)
-{
-  WifiRowAction *data = user_data;
-  (void) button;
-  network_sidebar_actions_connect_wifi(data->actions, data->device, data->ap);
 }
 
 static void
@@ -703,22 +689,26 @@ add_saved_profiles_only_group(AdwPreferencesGroup *group,
 }
 
 static void
-add_network_row(GtkListBox *list, NMClient *client, NetworkSidebarActions *actions, WifiEntry *entry)
+add_network_row(GtkListBox *list,
+                NMClient *client,
+                NetworkSidebarActions *actions,
+                WifiEntry *entry,
+                NMRemoteConnection *saved,
+                NMActiveConnection *active,
+                NetworkSidebarRowState row_state)
 {
-  g_autofree char *title = wifi_entry_title(entry);
-  g_autofree char *subtitle = wifi_entry_subtitle(entry);
+  g_autofree char *title = wifi_entry_title(entry, saved, active);
+  g_autofree char *subtitle = wifi_entry_subtitle(entry, saved);
   GtkWidget *row = network_sidebar_action_row(title, subtitle, network_sidebar_signal_icon(nm_access_point_get_strength(entry->ap)));
   WifiRowAction *row_action = g_new0(WifiRowAction, 1);
-  gboolean can_activate = entry->active != NULL || (nm_client_networking_get_enabled(client) && nm_client_wireless_get_enabled(client));
+  gboolean can_activate = active != NULL || (nm_client_networking_get_enabled(client) && nm_client_wireless_get_enabled(client));
 
   row_action->actions = network_sidebar_actions_ref(actions);
   row_action->device = g_object_ref(entry->device);
   row_action->ap = g_object_ref(entry->ap);
-  row_action->active = entry->active != NULL ? g_object_ref(entry->active) : NULL;
-  if (entry->saved_connections != NULL && entry->saved_connections->len == 1)
-    row_action->saved = g_object_ref(g_ptr_array_index(entry->saved_connections, 0));
-
-  network_sidebar_apply_row_state(row, entry->row_state);
+  row_action->active = active != NULL ? g_object_ref(active) : NULL;
+  row_action->saved = saved != NULL ? g_object_ref(saved) : NULL;
+  network_sidebar_apply_row_state(row, row_state);
 
   if (row_action->saved != NULL) {
     GtkWidget *edit_button = network_sidebar_flat_button("document-edit-symbolic", "Edit");
@@ -730,15 +720,48 @@ add_network_row(GtkListBox *list, NMClient *client, NetworkSidebarActions *actio
     remove_button = network_sidebar_flat_button("user-trash-symbolic", "Remove");
     g_signal_connect(remove_button, "clicked", G_CALLBACK(on_wifi_remove_clicked), row_action);
     adw_action_row_add_suffix(ADW_ACTION_ROW(row), remove_button);
-  } else if (entry->saved_connections != NULL && entry->saved_connections->len > 1) {
-    GtkWidget *profiles_button = network_sidebar_flat_button("document-edit-symbolic", "Saved profiles");
-    g_signal_connect(profiles_button, "clicked", G_CALLBACK(on_wifi_profiles_clicked), row_action);
-    adw_action_row_add_suffix(ADW_ACTION_ROW(row), profiles_button);
   }
 
   gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), can_activate);
   g_signal_connect_data(row, "activated", G_CALLBACK(on_wifi_row_activated), row_action, wifi_row_action_closure_notify, 0);
   gtk_list_box_append(list, row);
+}
+
+static void
+add_network_rows(GtkListBox *connected_list,
+                 GtkListBox *available_list,
+                 NMClient *client,
+                 NetworkSidebarActions *actions,
+                 WifiEntry *entry,
+                 guint *connected_count,
+                 guint *available_count)
+{
+  if (entry->saved_connections != NULL && entry->saved_connections->len > 0) {
+    for (guint i = 0; i < entry->saved_connections->len; i++) {
+      NMRemoteConnection *saved = g_ptr_array_index(entry->saved_connections, i);
+      const char *uuid = nm_connection_get_uuid(NM_CONNECTION(saved));
+      gboolean profile_is_active = entry->active != NULL &&
+        g_strcmp0(uuid, nm_active_connection_get_uuid(entry->active)) == 0;
+      NMActiveConnection *active = profile_is_active ? entry->active : NULL;
+      NetworkSidebarRowState row_state = network_sidebar_connection_row_state(active);
+      GtkListBox *target = row_state_preferred(row_state) ? connected_list : available_list;
+
+      add_network_row(target, client, actions, entry, saved, active, row_state);
+      if (target == connected_list)
+        (*connected_count)++;
+      else
+        (*available_count)++;
+    }
+    return;
+  }
+
+  if (row_state_preferred(entry->row_state)) {
+    add_network_row(connected_list, client, actions, entry, NULL, entry->active, entry->row_state);
+    (*connected_count)++;
+  } else {
+    add_network_row(available_list, client, actions, entry, NULL, entry->active, entry->row_state);
+    (*available_count)++;
+  }
 }
 
 void
@@ -846,13 +869,13 @@ network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebar
 
   for (guint i = 0; i < entries->len; i++) {
     WifiEntry *entry = g_ptr_array_index(entries, i);
-    if (row_state_preferred(entry->row_state)) {
-      add_network_row(GTK_LIST_BOX(connected_list), client, actions, entry);
-      connected_count++;
-    } else {
-      add_network_row(GTK_LIST_BOX(available_list), client, actions, entry);
-      available_count++;
-    }
+    add_network_rows(GTK_LIST_BOX(connected_list),
+                     GTK_LIST_BOX(available_list),
+                     client,
+                     actions,
+                     entry,
+                     &connected_count,
+                     &available_count);
   }
   connected_count += add_unmatched_connected_saved_profile_rows(GTK_LIST_BOX(connected_list),
                                                                client,

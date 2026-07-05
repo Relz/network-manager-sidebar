@@ -34,6 +34,10 @@ void network_sidebar_actions_connect_wifi(NetworkSidebarActions *actions,
                                            NMDeviceWifi *device,
                                            NMAccessPoint *ap);
 void network_sidebar_actions_activate_saved_wifi_profile(NetworkSidebarActions *actions, NMRemoteConnection *connection);
+void network_sidebar_actions_activate_saved_wifi_profile_for_ap(NetworkSidebarActions *actions,
+                                                               NMRemoteConnection *connection,
+                                                               NMDeviceWifi *device,
+                                                               NMAccessPoint *ap);
 void network_sidebar_actions_activate_vpn_connection(NetworkSidebarActions *actions, NMRemoteConnection *connection);
 void network_sidebar_actions_deactivate(NetworkSidebarActions *actions, NMActiveConnection *active);
 void network_sidebar_actions_delete_connection(NetworkSidebarActions *actions, NMRemoteConnection *connection);

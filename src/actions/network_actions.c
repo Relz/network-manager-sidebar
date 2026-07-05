@@ -995,6 +995,7 @@ add_and_activate_wifi(NetworkSidebarActions *actions, NMDeviceWifi *device, NMAc
   g_autofree char *ssid = network_sidebar_ap_ssid_text(ap);
   g_autofree char *uuid = NULL;
   g_autoptr(NMConnection) connection = NULL;
+  const char *ap_path = nm_object_get_path(NM_OBJECT(ap));
   AsyncAction *async;
 
   connection = create_wifi_connection(ap, password, &uuid);
@@ -1009,13 +1010,14 @@ add_and_activate_wifi(NetworkSidebarActions *actions, NMDeviceWifi *device, NMAc
     g_autofree char *message = g_strdup_printf("Connecting to %s...", ssid);
     toast(actions, message);
   }
+  /* Keep the saved profile SSID-based, but target this AP for the activation. */
   nm_client_add_and_activate_connection_async(actions->client,
-                                             connection,
-                                             NM_DEVICE(device),
-                                             nm_object_get_path(NM_OBJECT(ap)),
-                                             NULL,
-                                             add_and_activate_wifi_finish_cb,
-                                             async);
+                                              connection,
+                                              NM_DEVICE(device),
+                                              ap_path,
+                                              NULL,
+                                              add_and_activate_wifi_finish_cb,
+                                              async);
 }
 
 typedef struct {
@@ -1084,13 +1086,14 @@ on_password_text_changed(GObject *object, GParamSpec *pspec, gpointer user_data)
   sync_password_connect_response(user_data);
 }
 
-static void
-activate_saved_wifi_with_context(NetworkSidebarActions *actions,
-                                  NMRemoteConnection *connection,
-                                  NMDeviceWifi *device,
-                                  NMAccessPoint *ap)
+void
+network_sidebar_actions_activate_saved_wifi_profile_for_ap(NetworkSidebarActions *actions,
+                                                           NMRemoteConnection *connection,
+                                                           NMDeviceWifi *device,
+                                                           NMAccessPoint *ap)
 {
   g_autofree char *name = network_sidebar_connection_name(NM_CONNECTION(connection), "Wi-Fi");
+  const char *ap_path = nm_object_get_path(NM_OBJECT(ap));
   AsyncAction *async = async_action_new(actions, name);
 
   async->is_wifi = TRUE;
@@ -1102,10 +1105,11 @@ activate_saved_wifi_with_context(NetworkSidebarActions *actions,
     g_autofree char *message = g_strdup_printf("Connecting %s...", name);
     toast(actions, message);
   }
+  /* Selecting an AP row should target that AP/BSSID for this activation. */
   nm_client_activate_connection_async(actions->client,
                                       NM_CONNECTION(connection),
                                       NM_DEVICE(device),
-                                      nm_object_get_path(NM_OBJECT(ap)),
+                                      ap_path,
                                       NULL,
                                       activate_finish_cb,
                                       async);
@@ -1175,7 +1179,7 @@ commit_password_finish_cb(GObject *source, GAsyncResult *result, gpointer user_d
     return;
   }
 
-  activate_saved_wifi_with_context(data->actions, data->saved_wifi, data->device, data->ap);
+  network_sidebar_actions_activate_saved_wifi_profile_for_ap(data->actions, data->saved_wifi, data->device, data->ap);
   schedule_refresh(data->actions, 500);
   password_dialog_data_free(data);
 }
@@ -1329,243 +1333,6 @@ saved_wifi_connections_for_ap(NetworkSidebarActions *actions, NMDeviceWifi *devi
   return matches;
 }
 
-typedef struct {
-  NetworkSidebarActions *actions;
-  NMDeviceWifi *device;
-  NMAccessPoint *ap;
-  GPtrArray *profiles;
-} SavedProfilesDialogData;
-
-typedef struct {
-  NetworkSidebarActions *actions;
-  NMDeviceWifi *device;
-  NMAccessPoint *ap;
-  NMRemoteConnection *profile;
-  NMActiveConnection *active;
-  AdwDialog *dialog;
-} SavedProfileActionData;
-
-static void
-saved_profiles_dialog_data_free(SavedProfilesDialogData *data)
-{
-  network_sidebar_actions_unref(data->actions);
-  g_clear_object(&data->device);
-  g_clear_object(&data->ap);
-  if (data->profiles != NULL)
-    g_ptr_array_unref(data->profiles);
-  g_free(data);
-}
-
-static SavedProfileActionData *
-saved_profile_action_data_new(NetworkSidebarActions *actions,
-                              NMDeviceWifi *device,
-                              NMAccessPoint *ap,
-                              NMRemoteConnection *profile,
-                              NMActiveConnection *active,
-                              AdwDialog *dialog)
-{
-  SavedProfileActionData *data = g_new0(SavedProfileActionData, 1);
-
-  data->actions = network_sidebar_actions_ref(actions);
-  data->device = g_object_ref(device);
-  data->ap = g_object_ref(ap);
-  data->profile = g_object_ref(profile);
-  data->active = active != NULL ? g_object_ref(active) : NULL;
-  data->dialog = dialog;
-  return data;
-}
-
-static void
-saved_profile_action_data_free(SavedProfileActionData *data)
-{
-  if (data == NULL)
-    return;
-  network_sidebar_actions_unref(data->actions);
-  g_clear_object(&data->device);
-  g_clear_object(&data->ap);
-  g_clear_object(&data->profile);
-  g_clear_object(&data->active);
-  g_free(data);
-}
-
-static void
-saved_profile_action_closure_notify(gpointer data, GClosure *closure)
-{
-  (void) closure;
-  saved_profile_action_data_free(data);
-}
-
-static NMActiveConnection *
-active_connection_by_uuid(NetworkSidebarActions *actions, const char *uuid)
-{
-  const GPtrArray *active_connections = nm_client_get_active_connections(actions->client);
-
-  if (uuid == NULL)
-    return NULL;
-  for (guint i = 0; active_connections != NULL && i < active_connections->len; i++) {
-    NMActiveConnection *active = g_ptr_array_index((GPtrArray *) active_connections, i);
-    if (g_strcmp0(uuid, nm_active_connection_get_uuid(active)) == 0)
-      return active;
-  }
-  return NULL;
-}
-
-static void
-activate_saved_profile_from_dialog(SavedProfileActionData *data)
-{
-  adw_dialog_close(data->dialog);
-  activate_saved_wifi_with_context(data->actions, data->profile, data->device, data->ap);
-}
-
-static void
-on_saved_profile_connect_clicked(GtkButton *button, gpointer user_data)
-{
-  (void) button;
-  activate_saved_profile_from_dialog(user_data);
-}
-
-static void
-on_saved_profile_edit_clicked(GtkButton *button, gpointer user_data)
-{
-  SavedProfileActionData *data = user_data;
-  (void) button;
-
-  adw_dialog_close(data->dialog);
-  network_sidebar_actions_edit_connection(data->actions, data->profile);
-}
-
-static void
-on_saved_profile_remove_clicked(GtkButton *button, gpointer user_data)
-{
-  SavedProfileActionData *data = user_data;
-  (void) button;
-
-  adw_dialog_close(data->dialog);
-  network_sidebar_actions_confirm_delete_connection(data->actions, data->profile, "Wi-Fi");
-}
-
-static void
-on_saved_profile_row_activated(GtkListBoxRow *row, gpointer user_data)
-{
-  SavedProfileActionData *data = user_data;
-  (void) row;
-
-  if (data->active != NULL) {
-    adw_dialog_close(data->dialog);
-    network_sidebar_actions_deactivate(data->actions, data->active);
-  } else {
-    activate_saved_profile_from_dialog(data);
-  }
-}
-
-static void
-saved_profile_chosen_cb(GObject *source, GAsyncResult *result, gpointer user_data)
-{
-  SavedProfilesDialogData *data = user_data;
-  (void) adw_alert_dialog_choose_finish(ADW_ALERT_DIALOG(source), result);
-  saved_profiles_dialog_data_free(data);
-}
-
-static void
-add_saved_profile_dialog_row(GtkListBox *profile_list,
-                             NetworkSidebarActions *actions,
-                             NMDeviceWifi *device,
-                             NMAccessPoint *ap,
-                             NMRemoteConnection *connection,
-                             AdwDialog *dialog)
-{
-  const char *uuid = nm_connection_get_uuid(NM_CONNECTION(connection));
-  NMActiveConnection *active = active_connection_by_uuid(actions, uuid);
-  g_autofree char *profile_name = network_sidebar_connection_name(NM_CONNECTION(connection), "Wi-Fi");
-  g_autofree char *subtitle = network_sidebar_wifi_profile_subtitle(connection);
-  GtkWidget *row = adw_action_row_new();
-  GtkWidget *connect_button;
-  GtkWidget *edit_button;
-  GtkWidget *remove_button;
-
-  adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row), profile_name);
-  if (subtitle != NULL && *subtitle != '\0')
-    adw_action_row_set_subtitle(ADW_ACTION_ROW(row), subtitle);
-  network_sidebar_apply_row_state(row, network_sidebar_connection_row_state(active));
-
-  connect_button = network_sidebar_flat_button("network-wireless-symbolic", "Connect");
-  gtk_widget_set_sensitive(connect_button, active == NULL);
-  g_signal_connect_data(connect_button,
-                        "clicked",
-                        G_CALLBACK(on_saved_profile_connect_clicked),
-                        saved_profile_action_data_new(actions, device, ap, connection, active, dialog),
-                        saved_profile_action_closure_notify,
-                        0);
-  adw_action_row_add_suffix(ADW_ACTION_ROW(row), connect_button);
-
-  edit_button = network_sidebar_flat_button("document-edit-symbolic", "Edit");
-  g_signal_connect_data(edit_button,
-                        "clicked",
-                        G_CALLBACK(on_saved_profile_edit_clicked),
-                        saved_profile_action_data_new(actions, device, ap, connection, active, dialog),
-                        saved_profile_action_closure_notify,
-                        0);
-  adw_action_row_add_suffix(ADW_ACTION_ROW(row), edit_button);
-
-  remove_button = network_sidebar_flat_button("user-trash-symbolic", "Remove");
-  g_signal_connect_data(remove_button,
-                        "clicked",
-                        G_CALLBACK(on_saved_profile_remove_clicked),
-                        saved_profile_action_data_new(actions, device, ap, connection, active, dialog),
-                        saved_profile_action_closure_notify,
-                        0);
-  adw_action_row_add_suffix(ADW_ACTION_ROW(row), remove_button);
-
-  gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), TRUE);
-  g_signal_connect_data(row,
-                        "activated",
-                        G_CALLBACK(on_saved_profile_row_activated),
-                        saved_profile_action_data_new(actions, device, ap, connection, active, dialog),
-                        saved_profile_action_closure_notify,
-                        0);
-  gtk_list_box_append(profile_list, row);
-}
-
-static void
-show_saved_profiles_dialog(NetworkSidebarActions *actions, NMDeviceWifi *device, NMAccessPoint *ap, GPtrArray *profiles)
-{
-  g_autofree char *ssid = network_sidebar_ap_ssid_text(ap);
-  g_autofree char *heading = g_strdup_printf("Saved profiles for %s", ssid);
-  AdwDialog *dialog;
-  GtkWidget *profile_list;
-  SavedProfilesDialogData *data;
-
-  if (actions->parent == NULL) {
-    NMRemoteConnection *first = g_ptr_array_index(profiles, 0);
-    activate_saved_wifi_with_context(actions, first, device, ap);
-    g_ptr_array_unref(profiles);
-    return;
-  }
-
-  dialog = adw_alert_dialog_new(heading, "Choose the Wi-Fi profile to connect, edit, or remove.");
-  gtk_widget_add_css_class(GTK_WIDGET(dialog), "nm-sidebar-dialog");
-  adw_alert_dialog_add_response(ADW_ALERT_DIALOG(dialog), "close", "Close");
-  adw_alert_dialog_set_close_response(ADW_ALERT_DIALOG(dialog), "close");
-  adw_alert_dialog_set_default_response(ADW_ALERT_DIALOG(dialog), "close");
-
-  profile_list = gtk_list_box_new();
-  gtk_widget_add_css_class(profile_list, "boxed-list");
-  gtk_list_box_set_selection_mode(GTK_LIST_BOX(profile_list), GTK_SELECTION_NONE);
-  for (guint i = 0; i < profiles->len; i++) {
-    NMRemoteConnection *connection = g_ptr_array_index(profiles, i);
-    add_saved_profile_dialog_row(GTK_LIST_BOX(profile_list), actions, device, ap, connection, dialog);
-  }
-  adw_alert_dialog_set_extra_child(ADW_ALERT_DIALOG(dialog), profile_list);
-  close_dialog_on_backdrop_click(dialog);
-
-  data = g_new0(SavedProfilesDialogData, 1);
-  data->actions = network_sidebar_actions_ref(actions);
-  data->device = g_object_ref(device);
-  data->ap = g_object_ref(ap);
-  data->profiles = profiles;
-  adw_alert_dialog_choose(ADW_ALERT_DIALOG(dialog), GTK_WIDGET(actions->parent), NULL, saved_profile_chosen_cb, data);
-}
-
 void
 network_sidebar_actions_connect_wifi(NetworkSidebarActions *actions, NMDeviceWifi *device, NMAccessPoint *ap)
 {
@@ -1574,11 +1341,13 @@ network_sidebar_actions_connect_wifi(NetworkSidebarActions *actions, NMDeviceWif
 
   if (saved->len == 1) {
     NMRemoteConnection *connection = g_ptr_array_index(saved, 0);
-    activate_saved_wifi_with_context(actions, connection, device, ap);
+    network_sidebar_actions_activate_saved_wifi_profile_for_ap(actions, connection, device, ap);
     return;
   }
   if (saved->len > 1) {
-    show_saved_profiles_dialog(actions, device, ap, g_steal_pointer(&saved));
+    g_autofree char *ssid = network_sidebar_ap_ssid_text(ap);
+    g_autofree char *message = g_strdup_printf("Choose a saved Wi-Fi profile for %s", ssid);
+    toast(actions, message);
     return;
   }
 
