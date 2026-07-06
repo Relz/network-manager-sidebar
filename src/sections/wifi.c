@@ -819,7 +819,6 @@ network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebar
     return;
   }
   if (!nm_client_wireless_get_enabled(client)) {
-    network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "Wi-Fi is disabled", "Enable Wi-Fi from the section header", "network-wireless-disabled-symbolic");
     add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions, saved_profiles);
     gtk_box_append(content, group);
     return;
