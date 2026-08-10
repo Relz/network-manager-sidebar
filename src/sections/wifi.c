@@ -98,18 +98,6 @@ ap_bssid(NMAccessPoint *ap)
 }
 
 static char *
-ap_bssid_or_path(NMAccessPoint *ap)
-{
-  const char *bssid = nm_access_point_get_bssid(ap);
-  const char *path;
-
-  if (bssid != NULL && *bssid != '\0')
-    return g_ascii_strdown(bssid, -1);
-  path = nm_object_get_path(NM_OBJECT(ap));
-  return g_strdup(path != NULL ? path : "");
-}
-
-static char *
 device_identity(NMDeviceWifi *device)
 {
   const char *path = nm_object_get_path(NM_OBJECT(device));
@@ -124,16 +112,8 @@ device_identity(NMDeviceWifi *device)
 static gboolean
 same_ap_identity(WifiEntry *entry, NMDeviceWifi *device, NMAccessPoint *ap)
 {
-  g_autofree char *entry_bssid = ap_bssid_or_path(entry->ap);
-  g_autofree char *candidate_bssid = ap_bssid_or_path(ap);
-
   return g_strcmp0(nm_device_get_iface(NM_DEVICE(entry->device)), nm_device_get_iface(NM_DEVICE(device))) == 0 &&
-         ssid_bytes_equal(nm_access_point_get_ssid(entry->ap), nm_access_point_get_ssid(ap)) &&
-         g_strcmp0(entry_bssid, candidate_bssid) == 0 &&
-         nm_access_point_get_frequency(entry->ap) == nm_access_point_get_frequency(ap) &&
-         nm_access_point_get_flags(entry->ap) == nm_access_point_get_flags(ap) &&
-         nm_access_point_get_wpa_flags(entry->ap) == nm_access_point_get_wpa_flags(ap) &&
-         nm_access_point_get_rsn_flags(entry->ap) == nm_access_point_get_rsn_flags(ap);
+         ssid_bytes_equal(nm_access_point_get_ssid(entry->ap), nm_access_point_get_ssid(ap));
 }
 
 static gboolean
