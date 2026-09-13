@@ -66,6 +66,28 @@ GitHub Actions also publishes AUR source metadata for `nm-sidebar` when the `AUR
 
 Native packages rely on distro-provided GLib, GTK4, libadwaita 1.3 or newer, NetworkManager/libnm, `gtk4-layer-shell`, and `nm-connection-editor`. The editor dependency is named differently by distro: Arch Linux and Fedora/RHEL-family packages provide it as `nm-connection-editor`, Debian/Ubuntu provide it through `network-manager-gnome`, and Alpine provides `/usr/bin/nm-connection-editor` through `network-manager-applet`. RPM dependency names are Fedora/RHEL-family oriented; other RPM distributions may need adjusted metadata.
 
+## Nix
+
+Run the application directly using Nix Flakes:
+
+```sh
+nix run
+```
+
+Build the package:
+
+```sh
+nix build
+```
+
+Or enter an interactive development shell:
+
+```sh
+nix develop
+```
+
+For non-flake environments, `default.nix` and `shell.nix` are also provided (`nix-build` and `nix-shell`).
+
 ## Project Layout
 
 - `src/cli/`: native command-line parsing, IPC probing, and GUI helper startup.

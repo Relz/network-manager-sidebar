@@ -2,3 +2,6 @@ build/
 build-*/
 package-root/
 dist/
+result
+result-*
+.direnv/
