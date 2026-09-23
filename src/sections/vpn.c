@@ -268,14 +268,14 @@ network_sidebar_add_vpn_group(GtkBox *content, NMClient *client, NetworkSidebarA
       duplicate_note = g_strdup_printf("UUID %s", uuid);
     plugin_available = vpn_profile_plugin_available(connection, &plugin_state, &plugin_unknown);
     if (active == NULL && !nm_client_networking_get_enabled(client))
-      activation_note = g_strdup("Networking is disabled");
+      activation_note = g_strdup("Enable networking to connect");
     else if (active == NULL && !has_base_connection)
       activation_note = g_strdup("VPN needs an active network connection");
     else if (active == NULL && !plugin_available)
       activation_note = g_strdup("VPN plugin is not installed for this profile");
     can_activate = active != NULL || activation_note == NULL;
     status = vpn_connection_status(active);
-    subtitle = activation_note != NULL ? join_subtitle_parts(activation_note, duplicate_note) : join_subtitle_parts(status, duplicate_note);
+    subtitle = join_subtitle_parts(status, duplicate_note);
     row = network_sidebar_action_row(title, subtitle, "network-vpn-symbolic");
     network_sidebar_apply_row_state(row, network_sidebar_vpn_row_state(active));
     if (activation_note != NULL)
