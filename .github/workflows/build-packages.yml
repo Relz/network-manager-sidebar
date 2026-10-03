@@ -32,9 +32,11 @@ jobs:
             ninja-build \
             pkg-config \
             libglib2.0-dev \
+            libjson-glib-dev \
             libgtk-4-dev \
             libadwaita-1-dev \
             libnm-dev \
+            libpolkit-gobject-1-dev \
             libgraphene-1.0-dev \
             libgtk4-layer-shell-dev
 

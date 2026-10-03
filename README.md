@@ -2,96 +2,108 @@
 
 ![Network Manager Sidebar demo showing the right-side NetworkManager panel](docs/demo.png)
 
-Native GTK4/libadwaita NetworkManager sidebar for Wayland desktops. It can be opened from the CLI, app launchers, hotkeys, or Waybar.
-
-The app opens as a right-side layer-shell panel and provides quick access to wired status, Wi-Fi networks, VPN profiles, and read-only connection details.
+Native GTK4/libadwaita NetworkManager sidebar for Wayland desktops. Opens as a right-side panel from the CLI, app launchers, hotkeys, or Waybar.
 
 ## Features
 
-- Toggle, show, hide, or quit the sidebar from repeated CLI invocations.
-- Show active wired connections and disconnect them.
-- Scan for Wi-Fi networks, connect to saved or open networks, and prompt for WPA/WPA2 passwords.
-- Toggle Wi-Fi and global NetworkManager networking.
-- List VPN profiles, connect or disconnect them, and open `nm-connection-editor` to create or edit profiles.
-- Show active connection information including interface, hardware address, driver, routes, addresses, gateways, DNS, and Wi-Fi details.
+- View Ethernet status and disconnect wired connections.
+- Scan and connect to Wi-Fi networks, enter passwords, and toggle Wi-Fi or global networking.
+- Connect and disconnect VPN profiles; use `nm-connection-editor` for advanced profile setup and editing.
+- Import, replace, connect, disconnect, and remove AmneziaWG profiles.
+- Inspect connection details, including addresses, routes, DNS, and Wi-Fi information.
 
-## Requirements
+## Installation
 
-- GLib/GIO.
-- GTK 4 and libadwaita 1.3 or newer.
-- NetworkManager/libnm.
-- `gtk4-layer-shell`.
-- `nm-connection-editor` for advanced NetworkManager profile creation, editing, and VPN import flows.
+On Arch Linux, install [`nm-sidebar`](https://aur.archlinux.org/packages/nm-sidebar) from the AUR.
 
-Gtk4LayerShell is required to show the sidebar.
+Prebuilt packages are also available in [GitHub Releases](https://github.com/Relz/network-manager-sidebar/releases): Debian/Ubuntu (`.deb`), Fedora/RHEL-family (`.rpm`), Arch Linux (`.pkg.tar.zst`), or Alpine Linux (`.apk`).
 
-Building from source also requires Meson, Ninja, pkg-config, a C compiler, and the development headers for the libraries above.
+Requires a Wayland compositor with layer-shell support and these dependencies:
+
+- GTK4, libadwaita 1.6+, and `gtk4-layer-shell`.
+- GLib/GIO 2.68+ and JSON-GLib 1.6+.
+- NetworkManager/libnm and `nm-connection-editor`.
+- System D-Bus, `polkit-gobject-1`, and the polkit authority daemon.
+
+For AmneziaWG, follow the [additional setup below](#amneziawg).
 
 ## Usage
 
-The default command is `--toggle`. Additional commands are:
-
 ```sh
-nm-sidebar --toggle
-nm-sidebar --show
-nm-sidebar --hide
-nm-sidebar --quit
-nm-sidebar --reload-css
-nm-sidebar --background
+nm-sidebar                # Toggle the sidebar (same as --toggle)
+nm-sidebar --show         # Show the sidebar
+nm-sidebar --hide         # Hide the sidebar
+nm-sidebar --quit         # Quit the running instance
+nm-sidebar --reload-css   # Reload user CSS
+nm-sidebar --background   # Start hidden if not already running
+nm-sidebar --help         # Show available options
 ```
 
-`--show`, `--hide`, `--quit`, `--reload-css`, and the default `--toggle` send commands to an existing background process over a Unix socket. `--background` verifies an existing instance or starts one without showing the sidebar. If no running process is available, `--toggle`, `--show`, and `--background` start the GTK app. `--reload-css` requires an existing running instance.
+`--toggle`, `--show`, and `--background` start the app if needed. Other control commands require a running instance. Add `nm-sidebar --background` to your session startup to preload the app.
 
-The socket is created at `$XDG_RUNTIME_DIR/nm-sidebar.sock`, with a fallback under `/tmp/nm-sidebar-$UID/` when `XDG_RUNTIME_DIR` is not set.
+### Waybar and monitors
 
-## Waybar
-
-Point a Waybar module at the executable, for example:
+Add an `on-click` entry to your Waybar module:
 
 ```json
-"on-click": "nm-sidebar --toggle"
+{
+  "on-click": "nm-sidebar --toggle"
+}
 ```
 
-Use `--background` from your session startup if you want the command server running before the first click.
+Waybar's `WAYBAR_OUTPUT_NAME` selects the output automatically. Override it with `NM_SIDEBAR_OUTPUT=eDP-1 nm-sidebar --toggle`.
 
-On multi-output setups, `nm-sidebar` uses Waybar's `WAYBAR_OUTPUT_NAME` environment variable when available. You can also force a connector with `NM_SIDEBAR_OUTPUT=eDP-1 nm-sidebar --toggle`.
+### Custom styles
 
-## Native Packages
+Put CSS overrides in `$XDG_CONFIG_HOME/nm-sidebar/nm-sidebar.css` (default: `~/.config/nm-sidebar/nm-sidebar.css`), then run `nm-sidebar --reload-css`.
 
-GitHub Actions builds native packages with Meson and nFPM for Debian/Ubuntu (`.deb`), Fedora/RHEL-family systems (`.rpm`), Arch Linux (`.pkg.tar.zst`), and Alpine Linux (`.apk`). Packages install the native CLI as `/usr/bin/nm-sidebar`, the GUI helper as `/usr/libexec/nm-sidebar/nm-sidebar-gui`, and application data under `/usr/share/nm-sidebar/`.
+## AmneziaWG
 
-Users can override packaged styles by creating `$XDG_CONFIG_HOME/nm-sidebar/nm-sidebar.css`. If `XDG_CONFIG_HOME` is unset, the app falls back to `~/.config/nm-sidebar/nm-sidebar.css`. Use `nm-sidebar --reload-css` to apply user CSS changes to the running instance without quitting it.
+Install `awg-quick` separately to use AmneziaWG. It must be in `/usr/bin`, `/usr/sbin`, `/bin`, or `/sbin`; copies under `/usr/local` are not used. Profiles with `DNS=` need `systemd-resolved` or a supported `resolvconf` installation. Firewall inspection also requires tools for the relevant backends: `nft`, `iptables-save`, and/or `ip6tables-save`.
 
-GitHub Actions also publishes AUR source metadata for `nm-sidebar` when the `AUR_SSH_PRIVATE_KEY` GitHub secret is configured. It renders `packaging/aur/PKGBUILD.in` with the tag version and repository URL, computes the source checksum and `.SRCINFO` in an Arch Linux container, then pushes `PKGBUILD` and `.SRCINFO` to `ssh://aur@aur.archlinux.org/nm-sidebar.git`.
+Access is denied by default, so the AmneziaWG section stays hidden until a local polkit rule grants access. The app does not prompt for an administrator password.
 
-Native packages rely on distro-provided GLib, GTK4, libadwaita 1.3 or newer, NetworkManager/libnm, `gtk4-layer-shell`, and `nm-connection-editor`. The editor dependency is named differently by distro: Arch Linux and Fedora/RHEL-family packages provide it as `nm-connection-editor`, Debian/Ubuntu provide it through `network-manager-gnome`, and Alpine provides `/usr/bin/nm-connection-editor` through `network-manager-applet`. RPM dependency names are Fedora/RHEL-family oriented; other RPM distributions may need adjusted metadata.
+As an administrator, create `/etc/polkit-1/rules.d/49-nm-sidebar-amneziawg.rules` as a root-owned `0644` file, replacing `YOUR_USER` with the allowed login name:
 
-## Project Layout
+```javascript
+polkit.addRule(function(action, subject) {
+    if (action.id == "dev.relz.NmSidebar.manage-amneziawg" &&
+        subject.user == "YOUR_USER" &&
+        subject.local &&
+        subject.active) {
+        return polkit.Result.YES;
+    }
+});
+```
 
-- `src/cli/`: native command-line parsing, IPC probing, and GUI helper startup.
-- `src/core/`: command socket protocol, IPC paths, IPC commands, and target-output helpers.
-- `src/gui/`: GTK application lifecycle, command server, layer-shell anchoring, and styles.
-- `src/actions/`: NetworkManager side-effect facade.
-- `src/data/`: NetworkManager data and label helpers.
-- `src/sections/`: UI sections for status, VPN, Wi-Fi, and connection information.
-- `nm-sidebar.css`: application styles.
+Polkit reloads rules automatically, and the sidebar updates access without a restart. The rule allows the selected active local user to list and manage AmneziaWG profiles and tunnels.
 
-## License
+Use the AmneziaWG section to import local `.conf` files and connect or disconnect profiles. Important behavior:
 
-Network Manager Sidebar is licensed under the GNU General Public License v3.0 or later. See `LICENSE` for details.
+- Saved profiles are root-owned `0600` files in `/etc/amnezia/amneziawg/`, named `<interface>.conf` with a valid interface name.
+- Imports accept local regular files up to 1 MiB, excluding symlinks. Command hooks (`PreUp`, `PostUp`, `PreDown`, `PostDown`) and domain-only `DNS=` values are unsupported.
+- Successful import does not guarantee protocol compatibility; `awg` validates it during activation. Replacing a profile overwrites the previous saved configuration.
+- Background profile refreshes keep known, available actions usable. Connect, disconnect, import, replace, and remove commands take priority over a refresh: after authorization, the service stops the inventory helper and waits for cleanup before running the command. One user operation runs at a time; selecting a file or confirming an action allows the current refresh to finish until a command is submitted.
+- Switching disconnects previous sidebar-managed AmneziaWG sessions before connecting the target. If activation fails, previous sessions are not automatically restored. Switching interrupts connectivity and is not a kill switch.
+- Removing an active profile disconnects its sidebar-managed tunnel and verifies runtime cleanup before deleting the saved configuration. Failed cleanup keeps the profile. Externally managed interfaces and tunnels requiring manual intervention remain blocked.
+- Tunnels are not configured to start automatically at boot.
 
 ## Development
 
-Configure the local development build once:
+Install Meson, Ninja, pkg-config, a C compiler, and development headers for the dependencies above. Configure once:
 
 ```sh
 meson setup build --prefix=/usr --libdir=lib --buildtype=debugoptimized
 ```
 
-There is currently no test-suite configuration. After each change, rebuild, install, and run the focused CLI check:
+Then build, install, and check the CLI:
 
 ```sh
 meson compile -C build
 sudo meson install -C build
 nm-sidebar --help
 ```
+
+## License
+
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE).

@@ -4,7 +4,6 @@
 #include "sections/helpers.h"
 
 #include <adwaita.h>
-#include <errno.h>
 #include <string.h>
 #include <unistd.h>
 

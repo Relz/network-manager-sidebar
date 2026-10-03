@@ -3,6 +3,7 @@
 
 #define NETWORK_SIDEBAR_APP_ID "dev.relz.NmSidebar"
 #define NETWORK_SIDEBAR_APP_NAME "Network Manager Sidebar"
+#define NETWORK_SIDEBAR_AMNEZIAWG_ACTION_ID NETWORK_SIDEBAR_APP_ID ".manage-amneziawg"
 #define NETWORK_SIDEBAR_SOCKET_NAME "nm-sidebar.sock"
 #define NETWORK_SIDEBAR_WIDTH 440
 #define NETWORK_SIDEBAR_LAYER_SHELL_REQUIRED_MESSAGE "Gtk4LayerShell support is required to show nm-sidebar"
@@ -17,6 +18,14 @@
 
 #ifndef NETWORK_SIDEBAR_INSTALLED_GUI_PATH
 #define NETWORK_SIDEBAR_INSTALLED_GUI_PATH "/usr/libexec/nm-sidebar/nm-sidebar-gui"
+#endif
+
+#ifndef NETWORK_SIDEBAR_INSTALLED_AWG_HELPER_PATH
+#define NETWORK_SIDEBAR_INSTALLED_AWG_HELPER_PATH "/usr/libexec/nm-sidebar/nm-sidebar-awg-helper"
+#endif
+
+#ifndef NETWORK_SIDEBAR_INSTALLED_AWG_SERVICE_PATH
+#define NETWORK_SIDEBAR_INSTALLED_AWG_SERVICE_PATH "/usr/libexec/nm-sidebar/nm-sidebar-awg-service"
 #endif
 
 #endif

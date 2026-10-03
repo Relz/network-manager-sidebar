@@ -36,27 +36,38 @@ network_sidebar_flat_button(const char *icon_name, const char *tooltip)
 void
 network_sidebar_apply_row_state(GtkWidget *row, NetworkSidebarRowState state)
 {
-  gtk_widget_remove_css_class(row, "active-connection-row");
-  gtk_widget_remove_css_class(row, "connecting-connection-row");
-  gtk_widget_remove_css_class(row, "failed-connection-row");
-  gtk_widget_remove_css_class(row, "disconnected-connection-row");
+  static const char *classes[] = {
+    "active-connection-row",
+    "connecting-connection-row",
+    "failed-connection-row",
+    "disconnected-connection-row",
+  };
+  const char *current = NULL;
 
   switch (state) {
   case NETWORK_SIDEBAR_ROW_STATE_ACTIVE:
-    gtk_widget_add_css_class(row, "active-connection-row");
+    current = "active-connection-row";
     break;
   case NETWORK_SIDEBAR_ROW_STATE_CONNECTING:
-    gtk_widget_add_css_class(row, "connecting-connection-row");
+    current = "connecting-connection-row";
     break;
   case NETWORK_SIDEBAR_ROW_STATE_FAILED:
-    gtk_widget_add_css_class(row, "failed-connection-row");
+    current = "failed-connection-row";
     break;
   case NETWORK_SIDEBAR_ROW_STATE_DISCONNECTED:
-    gtk_widget_add_css_class(row, "disconnected-connection-row");
+    current = "disconnected-connection-row";
     break;
   default:
     break;
   }
+
+  /* Retain the current class so a repeated update cannot restart its animation. */
+  for (guint i = 0; i < G_N_ELEMENTS(classes); i++) {
+    if (g_strcmp0(classes[i], current) != 0)
+      gtk_widget_remove_css_class(row, classes[i]);
+  }
+  if (current != NULL && !gtk_widget_has_css_class(row, current))
+    gtk_widget_add_css_class(row, current);
 }
 
 void

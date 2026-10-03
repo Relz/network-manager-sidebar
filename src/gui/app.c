@@ -5,9 +5,12 @@
 #include "core/ipc_commands.h"
 #include "core/target_output.h"
 #include "gui/command_server.h"
+#include "gui/amneziawg_presenter.h"
 #include "gui/layer_shell.h"
 #include "gui/styles.h"
 #include "actions/network_actions.h"
+#include "amneziawg/controller.h"
+#include "sections/amneziawg.h"
 #include "sections/connection_info.h"
 #include "sections/helpers.h"
 #include "sections/status.h"
@@ -31,6 +34,8 @@ struct _NetworkSidebarGuiApp {
   AdwApplication *application;
   NMClient *client;
   NetworkSidebarActions *actions;
+  NetworkSidebarAwgPresenter *amneziawg_presenter;
+  NetworkSidebarAwgController *amneziawg;
   NetworkSidebarCommandServer *server;
   GtkWidget *window;
   GtkWidget *surface;
@@ -41,6 +46,12 @@ struct _NetworkSidebarGuiApp {
   GtkWidget *networking_switch;
   GtkWidget *scrolled;
   GtkWidget *content;
+  GtkWidget *network_content;
+  GtkWidget *connection_info_content;
+  GtkWidget *status_content;
+  GtkWidget *vpn_content;
+  GtkWidget *amneziawg_section;
+  GtkWidget *wifi_content;
   GtkWidget *scroll_fade_top;
   GtkWidget *scroll_fade_bottom;
   guint scroll_restore_source;
@@ -53,6 +64,10 @@ struct _NetworkSidebarGuiApp {
   guint signal_refresh_source;
   guint periodic_refresh_source;
   GPtrArray *refresh_signal_handlers;
+  gboolean external_dialog_active;
+  gboolean sidebar_requested_visible;
+  gboolean inventory_refresh_requested;
+  gboolean shutting_down;
   gboolean outside_click_started;
   gboolean unsupported_layer_shell;
   gboolean runtime_failure;
@@ -68,6 +83,7 @@ static gboolean ensure_nm_client(NetworkSidebarGuiApp *self);
 static gboolean ensure_window(NetworkSidebarGuiApp *self);
 static gboolean ensure_command_server(NetworkSidebarGuiApp *self, gboolean repair);
 static void show_sidebar(NetworkSidebarGuiApp *self);
+static void present_sidebar(NetworkSidebarGuiApp *self, gboolean refresh_inventory);
 static void hide_sidebar(NetworkSidebarGuiApp *self);
 static void toggle_sidebar(NetworkSidebarGuiApp *self);
 static void set_target_output_name(NetworkSidebarGuiApp *self, const char *target_output_name);
@@ -108,6 +124,9 @@ network_sidebar_gui_app_run(NetworkSidebarGuiApp *self, int argc, char **argv)
   if (self->unsupported_layer_shell || self->runtime_failure)
     status = 1;
   g_clear_pointer(&self->actions, network_sidebar_actions_unref);
+  g_clear_pointer(&self->amneziawg_presenter,
+                  network_sidebar_awg_presenter_unref);
+  self->amneziawg = NULL;
   g_clear_pointer(&self->refresh_signal_handlers, g_ptr_array_unref);
   g_clear_object(&self->application);
   g_clear_object(&self->client);
@@ -260,6 +279,10 @@ on_shutdown(GApplication *application, gpointer user_data)
   NetworkSidebarGuiApp *self = user_data;
   (void) application;
 
+  self->shutting_down = TRUE;
+  if (self->amneziawg_presenter != NULL)
+    network_sidebar_awg_presenter_stop(self->amneziawg_presenter);
+
   if (self->refresh_source != 0) {
     g_source_remove(self->refresh_source);
     self->refresh_source = 0;
@@ -346,13 +369,49 @@ schedule_refresh_callback(guint delay_ms, gpointer user_data)
 }
 
 static void
+external_dialog_callback(gboolean active, gpointer user_data)
+{
+  NetworkSidebarGuiApp *self = user_data;
+
+  self->external_dialog_active = active;
+  if (active) {
+    if (self->amneziawg != NULL)
+      network_sidebar_awg_controller_set_inventory_enabled(self->amneziawg,
+                                                            FALSE);
+    if (self->window != NULL && gtk_widget_get_visible(self->window))
+      gtk_widget_set_visible(self->window, FALSE);
+  } else if (!self->shutting_down && self->sidebar_requested_visible) {
+    /* Restoring the same interaction is not an explicit sidebar reopen. The
+     * controller resumes queued work and verifies any resulting mutation. */
+    present_sidebar(self, FALSE);
+  }
+}
+
+static void
 ensure_actions(NetworkSidebarGuiApp *self)
 {
-  if (self->actions != NULL)
-    return;
-  self->actions = network_sidebar_actions_new(self->client, toast_callback, schedule_refresh_callback, self);
-  if (self->window != NULL)
+  if (self->actions == NULL)
+    self->actions = network_sidebar_actions_new(self->client,
+                                                toast_callback,
+                                                schedule_refresh_callback,
+                                                self);
+  if (self->amneziawg_presenter == NULL) {
+    self->amneziawg_presenter = network_sidebar_awg_presenter_new(
+      schedule_refresh_callback,
+      external_dialog_callback,
+      self);
+    self->amneziawg = network_sidebar_awg_presenter_get_controller(
+      self->amneziawg_presenter);
+    network_sidebar_awg_presenter_start(self->amneziawg_presenter);
+  }
+  if (self->window != NULL) {
     network_sidebar_actions_set_parent(self->actions, GTK_WINDOW(self->window));
+    if (self->toast_overlay != NULL)
+      network_sidebar_awg_presenter_set_parent(
+        self->amneziawg_presenter,
+        GTK_WINDOW(self->window),
+        ADW_TOAST_OVERLAY(self->toast_overlay));
+  }
 }
 
 static void
@@ -730,6 +789,16 @@ on_scroll_adjustment_changed(GtkAdjustment *adjustment, gpointer user_data)
   update_scroll_fades(user_data);
 }
 
+static void
+on_scroll_adjustment_notify(GtkAdjustment *adjustment,
+                            GParamSpec *pspec,
+                            gpointer user_data)
+{
+  (void) adjustment;
+  (void) pspec;
+  update_scroll_fades(user_data);
+}
+
 static GtkAdjustment *
 scroll_adjustment(NetworkSidebarGuiApp *self)
 {
@@ -917,6 +986,21 @@ ensure_window(NetworkSidebarGuiApp *self)
 
   self->content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
   gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(self->scrolled), self->content);
+  self->network_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
+  self->connection_info_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
+  gtk_widget_set_visible(self->connection_info_content, FALSE);
+  gtk_box_append(GTK_BOX(self->content), self->network_content);
+  gtk_box_append(GTK_BOX(self->content), self->connection_info_content);
+  self->status_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
+  self->vpn_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
+  self->wifi_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
+  ensure_actions(self);
+  self->amneziawg_section = network_sidebar_amneziawg_section_new(self->amneziawg_presenter);
+  gtk_widget_set_visible(self->amneziawg_section, FALSE);
+  gtk_box_append(GTK_BOX(self->network_content), self->status_content);
+  gtk_box_append(GTK_BOX(self->network_content), self->vpn_content);
+  gtk_box_append(GTK_BOX(self->network_content), self->amneziawg_section);
+  gtk_box_append(GTK_BOX(self->network_content), self->wifi_content);
 
   self->scroll_fade_top = create_scroll_fade("network-scroll-fade-top", GTK_ALIGN_START);
   self->scroll_fade_bottom = create_scroll_fade("network-scroll-fade-bottom", GTK_ALIGN_END);
@@ -925,9 +1009,9 @@ ensure_window(NetworkSidebarGuiApp *self)
   {
     GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(self->scrolled));
     g_signal_connect(adjustment, "value-changed", G_CALLBACK(on_scroll_adjustment_changed), self);
-    g_signal_connect(adjustment, "notify::lower", G_CALLBACK(on_scroll_adjustment_changed), self);
-    g_signal_connect(adjustment, "notify::upper", G_CALLBACK(on_scroll_adjustment_changed), self);
-    g_signal_connect(adjustment, "notify::page-size", G_CALLBACK(on_scroll_adjustment_changed), self);
+    g_signal_connect(adjustment, "notify::lower", G_CALLBACK(on_scroll_adjustment_notify), self);
+    g_signal_connect(adjustment, "notify::upper", G_CALLBACK(on_scroll_adjustment_notify), self);
+    g_signal_connect(adjustment, "notify::page-size", G_CALLBACK(on_scroll_adjustment_notify), self);
   }
 
   click_controller = gtk_gesture_click_new();
@@ -943,7 +1027,6 @@ ensure_window(NetworkSidebarGuiApp *self)
   g_signal_connect(self->window, "close-request", G_CALLBACK(on_close_request), self);
   g_signal_connect(self->window, "map", G_CALLBACK(on_window_map), self);
 
-  ensure_actions(self);
   sync_refresh_signals(self);
   if (self->periodic_refresh_source == 0)
     self->periodic_refresh_source = g_timeout_add_seconds(60, periodic_refresh_cb, self);
@@ -997,9 +1080,14 @@ set_target_output_name(NetworkSidebarGuiApp *self, const char *target_output_nam
 }
 
 static void
-show_sidebar(NetworkSidebarGuiApp *self)
+present_sidebar(NetworkSidebarGuiApp *self, gboolean refresh_inventory)
 {
   g_autoptr(GError) error = NULL;
+
+  self->sidebar_requested_visible = TRUE;
+  self->inventory_refresh_requested |= refresh_inventory;
+  if (self->external_dialog_active)
+    return;
 
   if (!ensure_window(self))
     return;
@@ -1008,12 +1096,28 @@ show_sidebar(NetworkSidebarGuiApp *self)
     return;
   }
   gtk_window_present(GTK_WINDOW(self->window));
+  network_sidebar_awg_controller_set_inventory_enabled(self->amneziawg, TRUE);
+  if (self->inventory_refresh_requested) {
+    self->inventory_refresh_requested = FALSE;
+    network_sidebar_awg_controller_request_inventory(self->amneziawg, TRUE);
+  }
   schedule_refresh(self, 1, TRUE);
+}
+
+static void
+show_sidebar(NetworkSidebarGuiApp *self)
+{
+  present_sidebar(self, TRUE);
 }
 
 static void
 hide_sidebar(NetworkSidebarGuiApp *self)
 {
+  self->sidebar_requested_visible = FALSE;
+  self->inventory_refresh_requested = FALSE;
+  if (self->amneziawg != NULL)
+    network_sidebar_awg_controller_set_inventory_enabled(self->amneziawg,
+                                                          FALSE);
   if (self->window != NULL)
     gtk_widget_set_visible(self->window, FALSE);
 }
@@ -1023,7 +1127,7 @@ toggle_sidebar(NetworkSidebarGuiApp *self)
 {
   if (!ensure_window(self))
     return;
-  if (gtk_widget_get_visible(self->window))
+  if (self->sidebar_requested_visible)
     hide_sidebar(self);
   else
     show_sidebar(self);
@@ -1070,8 +1174,10 @@ static gboolean
 periodic_refresh_cb(gpointer user_data)
 {
   NetworkSidebarGuiApp *self = user_data;
-  if (self->window != NULL && gtk_widget_get_visible(self->window))
+  if (self->window != NULL && gtk_widget_get_visible(self->window)) {
+    network_sidebar_awg_controller_request_inventory(self->amneziawg, FALSE);
     refresh_content(self, TRUE);
+  }
   return G_SOURCE_CONTINUE;
 }
 
@@ -1097,6 +1203,7 @@ schedule_refresh(NetworkSidebarGuiApp *self, guint delay_ms, gboolean visible_on
 static void
 refresh_content(NetworkSidebarGuiApp *self, gboolean preserve_scroll)
 {
+  g_autoptr(NetworkSidebarAwgSnapshot) amneziawg_snapshot = NULL;
   double scroll_value;
 
   if (self->content == NULL || self->client == NULL || self->actions == NULL)
@@ -1104,24 +1211,39 @@ refresh_content(NetworkSidebarGuiApp *self, gboolean preserve_scroll)
 
   scroll_value = preserve_scroll ? current_scroll_value(self) : scroll_lower_value(self);
   sync_refresh_signals(self);
+  if (self->amneziawg != NULL)
+    amneziawg_snapshot = network_sidebar_awg_controller_dup_snapshot(self->amneziawg);
   self->refreshing = TRUE;
   gtk_switch_set_active(GTK_SWITCH(self->networking_switch), nm_client_networking_get_enabled(self->client));
-  network_sidebar_clear_box(GTK_BOX(self->content));
+  /* Keep the AmneziaWG section and its animated rows mapped across refreshes. */
+  network_sidebar_clear_box(GTK_BOX(self->connection_info_content));
+  if (amneziawg_snapshot != NULL)
+    network_sidebar_amneziawg_section_update(self->amneziawg_section, amneziawg_snapshot);
+  gtk_widget_set_visible(self->network_content, !self->showing_connection_information);
+  gtk_widget_set_visible(self->connection_info_content, self->showing_connection_information);
+  gtk_widget_set_visible(self->amneziawg_section,
+                          amneziawg_snapshot != NULL && amneziawg_snapshot->authorized);
 
   if (self->showing_connection_information) {
     gtk_label_set_label(GTK_LABEL(self->title), "Connection Information");
     gtk_widget_set_visible(self->back_button, TRUE);
     gtk_widget_set_visible(self->info_button, FALSE);
     gtk_widget_set_visible(self->networking_switch, FALSE);
-    network_sidebar_add_connection_info_content(GTK_BOX(self->content), self->client);
+    network_sidebar_add_connection_info_content(GTK_BOX(self->connection_info_content), self->client);
   } else {
     gtk_label_set_label(GTK_LABEL(self->title), "Network");
     gtk_widget_set_visible(self->back_button, FALSE);
     gtk_widget_set_visible(self->info_button, TRUE);
     gtk_widget_set_visible(self->networking_switch, TRUE);
-    network_sidebar_add_status_group(GTK_BOX(self->content), self->client, self->actions);
-    network_sidebar_add_vpn_group(GTK_BOX(self->content), self->client, self->actions);
-    network_sidebar_add_wifi_group(GTK_BOX(self->content), self->client, self->actions);
+    network_sidebar_clear_box(GTK_BOX(self->status_content));
+    network_sidebar_clear_box(GTK_BOX(self->vpn_content));
+    network_sidebar_clear_box(GTK_BOX(self->wifi_content));
+    network_sidebar_add_status_group(GTK_BOX(self->status_content), self->client, self->actions);
+    network_sidebar_add_vpn_group(GTK_BOX(self->vpn_content), self->client, self->actions);
+    network_sidebar_add_wifi_group(GTK_BOX(self->wifi_content), self->client, self->actions);
+    gtk_widget_set_visible(self->status_content, gtk_widget_get_first_child(self->status_content) != NULL);
+    gtk_widget_set_visible(self->vpn_content, gtk_widget_get_first_child(self->vpn_content) != NULL);
+    gtk_widget_set_visible(self->wifi_content, gtk_widget_get_first_child(self->wifi_content) != NULL);
   }
   self->refreshing = FALSE;
   schedule_scroll_restore(self, scroll_value);

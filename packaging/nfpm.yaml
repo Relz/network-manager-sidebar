@@ -26,6 +26,36 @@ contents:
       mode: 0755
       owner: root
       group: root
+  - src: ./package-root/usr/libexec/nm-sidebar/nm-sidebar-awg-helper
+    dst: /usr/libexec/nm-sidebar/nm-sidebar-awg-helper
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./package-root/usr/libexec/nm-sidebar/nm-sidebar-awg-service
+    dst: /usr/libexec/nm-sidebar/nm-sidebar-awg-service
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./package-root/usr/share/polkit-1/actions/dev.relz.NmSidebar.amneziawg.policy
+    dst: /usr/share/polkit-1/actions/dev.relz.NmSidebar.amneziawg.policy
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  - src: ./package-root/usr/share/dbus-1/system-services/dev.relz.NmSidebar.AmneziaWG.service
+    dst: /usr/share/dbus-1/system-services/dev.relz.NmSidebar.AmneziaWG.service
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  - src: ./package-root/usr/share/dbus-1/system.d/dev.relz.NmSidebar.AmneziaWG.conf
+    dst: /usr/share/dbus-1/system.d/dev.relz.NmSidebar.AmneziaWG.conf
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: ./package-root/usr/share/nm-sidebar/nm-sidebar.css
     dst: /usr/share/nm-sidebar/nm-sidebar.css
     file_info:
@@ -49,35 +79,50 @@ archlinux:
 overrides:
   deb:
     depends:
-      - libglib2.0-0
+      - libglib2.0-0 (>= 2.68)
+      - libjson-glib-1.0-0 (>= 1.6)
       - libgtk-4-1
-      - libadwaita-1-0 (>= 1.3)
+      - libadwaita-1-0 (>= 1.6)
       - libnm0
       - libgtk4-layer-shell0
       - network-manager
       - network-manager-gnome
+      - libpolkit-gobject-1-0
+      - polkitd
+      - dbus
   rpm:
     depends:
-      - glib2
+      - glib2 >= 2.68
+      - json-glib >= 1.6
       - gtk4
-      - libadwaita >= 1.3
+      - libadwaita >= 1.6
       - NetworkManager
       - NetworkManager-libnm
       - gtk4-layer-shell
       - nm-connection-editor
+      - polkit-libs
+      - polkit
+      - dbus
   archlinux:
     depends:
-      - glib2
+      - glib2>=2.68
+      - json-glib>=1.6
       - gtk4
-      - libadwaita>=1.3
+      - libadwaita>=1.6
       - networkmanager
       - gtk4-layer-shell
       - nm-connection-editor
+      - polkit
+      - dbus
   apk:
     depends:
-      - glib
+      - glib>=2.68
+      - json-glib>=1.6
       - gtk4.0
-      - libadwaita>=1.3
+      - libadwaita>=1.6
       - networkmanager
       - gtk4-layer-shell
       - network-manager-applet
+      - "so:libpolkit-gobject-1.so.0"
+      - polkit
+      - dbus
