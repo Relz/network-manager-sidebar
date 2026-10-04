@@ -13,7 +13,7 @@ typedef enum {
 
 typedef struct _AwgTool AwgTool;
 
-/* Fixed system paths only. Root-owned distro multicall symlinks are supported. */
+/* Build-time system paths only. Trusted multicall symlinks are supported. */
 AwgToolAvailability awg_tool_available(const char *name);
 /* Keep the same executable pinned across version detection and collection. */
 AwgTool *awg_tool_open(const char *name);

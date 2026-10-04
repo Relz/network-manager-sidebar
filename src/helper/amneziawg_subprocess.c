@@ -2,6 +2,7 @@
 
 #include "helper/amneziawg_subprocess.h"
 
+#include "amneziawg_build_config.h"
 #include "amneziawg/deadline.h"
 #include "helper/amneziawg_helper_util.h"
 #include "helper/amneziawg_process.h"
@@ -53,7 +54,7 @@ exec_child(const AwgSubprocessRequest *request,
            int diagnostics[2])
 {
   static char *const environment[] = {
-    "PATH=/usr/sbin:/usr/bin:/sbin:/bin", "HOME=/root", "LANG=C", "LC_ALL=C", NULL,
+    "PATH=" AWG_SUBPROCESS_PATH, "HOME=/root", "LANG=C", "LC_ALL=C", NULL,
   };
   struct sigaction action = { .sa_handler = SIG_DFL };
   int null_fd;

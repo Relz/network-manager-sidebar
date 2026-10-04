@@ -3,12 +3,12 @@
 #include "helper/amneziawg_tool.h"
 
 #include "amneziawg/amneziawg.h"
+#include "amneziawg_build_config.h"
+#include "helper/amneziawg_executable.h"
 #include "helper/amneziawg_helper_util.h"
 #include "helper/amneziawg_subprocess.h"
 
 #include <errno.h>
-#include <fcntl.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -21,64 +21,16 @@ struct _AwgTool {
   char *name;
 };
 
-static gboolean
-trusted_directory(int fd)
-{
-  struct stat status;
-
-  return fstat(fd, &status) == 0 && S_ISDIR(status.st_mode) &&
-         status.st_uid == 0 && status.st_gid == 0 &&
-         (status.st_mode & 0022) == 0;
-}
-
-static int
-open_canonical_executable(const char *path)
-{
-  g_auto(GStrv) components = g_strsplit(path + 1, "/", -1);
-  int directory = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-  int executable = -1;
-  struct stat status;
-
-  if (directory < 0 || !trusted_directory(directory))
-    goto out;
-  for (guint i = 0; components[i] != NULL; i++) {
-    int next;
-
-    if (components[i + 1] == NULL) {
-      executable = openat(directory, components[i],
-                           O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
-      break;
-    }
-    next = openat(directory, components[i],
-                   O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-    close(directory);
-    directory = next;
-    if (directory < 0 || !trusted_directory(directory))
-      goto out;
-  }
-  if (executable >= 0 &&
-      (fstat(executable, &status) != 0 || !S_ISREG(status.st_mode) ||
-       status.st_uid != 0 || status.st_gid != 0 || status.st_nlink != 1 ||
-       (status.st_mode & 0111) == 0 || (status.st_mode & 0022) != 0))
-    awg_helper_close_fd(&executable);
-out:
-  awg_helper_close_fd(&directory);
-  return executable;
-}
-
 static AwgToolAvailability
 open_tool(const char *name, int *fd)
 {
-  static const char *const directories[] = {
-    "/usr/sbin", "/usr/bin", "/sbin", "/bin",
-  };
+  g_auto(GStrv) directories = g_strsplit(AWG_TOOL_PATH, ":", -1);
 
   *fd = -1;
   if (name == NULL || *name == '\0' || strchr(name, '/') != NULL)
     return AWG_TOOL_UNTRUSTED;
-  for (guint i = 0; i < G_N_ELEMENTS(directories); i++) {
+  for (guint i = 0; directories[i] != NULL; i++) {
     g_autofree char *path = g_build_filename(directories[i], name, NULL);
-    g_autofree char *canonical = NULL;
     struct stat status;
 
     if (lstat(path, &status) != 0) {
@@ -90,10 +42,7 @@ open_tool(const char *name, int *fd)
       return AWG_TOOL_UNTRUSTED;
     /* Resolve alternatives once; verify every canonical directory, then execute
      * the opened descriptor. argv[0] retains the multicall applet's name. */
-    canonical = realpath(path, NULL);
-    if (canonical == NULL)
-      return AWG_TOOL_UNTRUSTED;
-    *fd = open_canonical_executable(canonical);
+    *fd = awg_executable_open(path, TRUE);
     return *fd >= 0 ? AWG_TOOL_AVAILABLE : AWG_TOOL_UNTRUSTED;
   }
   return AWG_TOOL_MISSING;

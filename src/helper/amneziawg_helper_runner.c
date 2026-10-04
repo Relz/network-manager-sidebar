@@ -1,7 +1,9 @@
 #include "helper/amneziawg_helper_runner.h"
 
 #include "amneziawg/deadline.h"
+#include "amneziawg_build_config.h"
 #include "core/config.h"
+#include "helper/amneziawg_executable.h"
 #include "helper/amneziawg_supervision_protocol.h"
 #include "helper/amneziawg_supervisor.h"
 
@@ -116,20 +118,12 @@ secret_bytes_copy(const guint8 *data, gsize length)
 static gboolean
 executable_is_trusted(const char *path)
 {
-  struct stat status;
-  int fd;
-  gboolean trusted;
+  int fd = awg_executable_open(path, FALSE);
 
-  if (path == NULL || path[0] != '/')
-    return FALSE;
-  fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0)
     return FALSE;
-  trusted = fstat(fd, &status) == 0 && S_ISREG(status.st_mode) &&
-            status.st_uid == 0 && status.st_gid == 0 && status.st_nlink == 1 &&
-            (status.st_mode & 0111) != 0 && (status.st_mode & 0022) == 0;
   close(fd);
-  return trusted;
+  return TRUE;
 }
 
 static guint
@@ -142,6 +136,15 @@ helper_capabilities(void)
 
   if (executable_is_trusted(NETWORK_SIDEBAR_INSTALLED_AWG_HELPER_PATH))
     capabilities |= NETWORK_SIDEBAR_AMNEZIAWG_CAPABILITY_HELPER;
+  if (AWG_QUICK_PATH[0] != '\0') {
+    int fd = awg_executable_open(AWG_QUICK_PATH, TRUE);
+
+    if (fd >= 0) {
+      capabilities |= NETWORK_SIDEBAR_AMNEZIAWG_CAPABILITY_AWG_QUICK;
+      close(fd);
+    }
+    return capabilities;
+  }
   for (gsize i = 0; i < G_N_ELEMENTS(awg_quick_paths); i++) {
     if (executable_is_trusted(awg_quick_paths[i])) {
       capabilities |= NETWORK_SIDEBAR_AMNEZIAWG_CAPABILITY_AWG_QUICK;

@@ -2,3 +2,4 @@
 Name=dev.relz.NmSidebar.AmneziaWG
 Exec=@AWG_SERVICE_PATH@
 User=root
+@AWG_SYSTEMD_SERVICE@
