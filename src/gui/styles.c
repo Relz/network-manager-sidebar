@@ -154,6 +154,20 @@ set_user_css_provider(GdkDisplay *display, GtkCssProvider *provider)
   user_css_display = g_object_ref(display);
 }
 
+// keep the full-screen overlay transparent even if gtk-4.0/gtk.css sets a window background
+static void
+install_overlay_css(GdkDisplay *display)
+{
+  GtkCssProvider *provider = gtk_css_provider_new();
+
+  gtk_css_provider_load_from_string(
+      provider,
+      ".nm-sidebar-window, .nm-sidebar-surface { background: transparent; }");
+  gtk_style_context_add_provider_for_display(
+      display, GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+  g_object_unref(provider);
+}
+
 void
 network_sidebar_install_application_css(NetworkSidebarErrorCallback report_error, gpointer user_data)
 {
@@ -176,6 +190,7 @@ network_sidebar_install_application_css(NetworkSidebarErrorCallback report_error
                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   g_object_unref(provider);
 
+  install_overlay_css(display);
   network_sidebar_reload_user_css(report_error, user_data);
 }
 
