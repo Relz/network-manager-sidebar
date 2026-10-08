@@ -27,6 +27,33 @@ Requires a Wayland compositor with layer-shell support and these dependencies:
 
 For AmneziaWG, follow the [additional setup below](#amneziawg).
 
+### Nix
+
+With [Nix](https://nixos.org/download/) and flakes enabled, run from a checkout:
+
+```sh
+nix build
+nix run . -- --show
+```
+
+The package includes application dependencies and AmneziaWG tools; the host provides NetworkManager, system D-Bus, polkit, and a layer-shell Wayland session. This runs the NetworkManager features; AmneziaWG additionally requires privileged system integration. The documented setup uses the NixOS module below. On other distributions, the service and D-Bus/polkit integration require separate system registration. See the [Nix reference](docs/nix.md) for details, non-flake usage, and development.
+
+### NixOS
+
+With a `nm-sidebar` flake input pointing to `github:Relz/network-manager-sidebar` and `inputs` passed through `specialArgs`, add to your NixOS configuration:
+
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.nm-sidebar.nixosModules.default ];
+
+  networking.networkmanager.enable = true;
+  programs.nm-sidebar.enable = true;
+}
+```
+
+See the [complete flake wiring and rebuild command](docs/nix.md#nixos) to apply. The module uses your system's nixpkgs and enables polkit. For AmneziaWG, follow the [Nix setup](docs/nix.md#amneziawg).
+
 ## Usage
 
 ```sh
@@ -59,7 +86,7 @@ Put CSS overrides in `$XDG_CONFIG_HOME/nm-sidebar/nm-sidebar.css` (default: `~/.
 
 ## AmneziaWG
 
-Install `awg-quick` separately to use AmneziaWG. It must be in `/usr/bin`, `/usr/sbin`, `/bin`, or `/sbin`; copies under `/usr/local` are not used. Profiles with `DNS=` need `systemd-resolved` or a supported `resolvconf` installation. Firewall inspection also requires tools for the relevant backends: `nft`, `iptables-save`, and/or `ip6tables-save`.
+For conventional packages, install `awg-quick` separately to use AmneziaWG. It must be in `/usr/bin`, `/usr/sbin`, `/bin`, or `/sbin`; copies under `/usr/local` are not used. Profiles with `DNS=` need `systemd-resolved` or a supported `resolvconf` installation. Firewall inspection also requires tools for the relevant backends: `nft`, `iptables-save`, and/or `ip6tables-save`. On NixOS, use the [module above](#nixos).
 
 Access is denied by default, so the AmneziaWG section stays hidden until a local polkit rule grants access. The app does not prompt for an administrator password.
 
@@ -89,6 +116,8 @@ Use the AmneziaWG section to import local `.conf` files and connect or disconnec
 - Tunnels are not configured to start automatically at boot.
 
 ## Development
+
+With Nix, follow the [development instructions](docs/nix.md#development).
 
 Install Meson, Ninja, pkg-config, a C compiler, and development headers for the dependencies above. Configure once:
 

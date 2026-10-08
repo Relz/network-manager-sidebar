@@ -37,6 +37,35 @@ awg_service_args = [
   '-DNETWORK_SIDEBAR_INSTALLED_AWG_HELPER_PATH="@0@"'.format(installed_awg_helper_path),
 ]
 
+awg_build_configuration = configuration_data()
+foreach setting : ['awg-quick-path', 'awg-resolvconf-path']
+  value = get_option(setting)
+  if value != '' and not value.startswith('/')
+    error('@0@ must be an absolute path'.format(setting))
+  endif
+  awg_build_configuration.set_quoted(setting.to_upper().replace('-', '_'), value)
+endforeach
+foreach setting : ['awg-tool-path', 'awg-subprocess-path']
+  value = get_option(setting)
+  foreach directory : value.split(':')
+    if not directory.startswith('/')
+      error('@0@ must contain only absolute, nonempty directories'.format(setting))
+    endif
+  endforeach
+  awg_build_configuration.set_quoted(setting.to_upper().replace('-', '_'), value)
+endforeach
+awg_store_paths = []
+foreach path : get_option('awg-store-paths')
+  path = path.replace('@prefix@', get_option('prefix'))
+  if not path.startswith('/nix/store/') or path.split('/').length() != 4 or path.endswith('/') or path.contains(':')
+    error('awg-store-paths must contain Nix store output roots')
+  endif
+  awg_store_paths += path
+endforeach
+awg_build_configuration.set_quoted('AWG_STORE_PATHS', ':'.join(awg_store_paths))
+configure_file(output: 'amneziawg_build_config.h', configuration: awg_build_configuration)
+awg_include = [src_include, include_directories('.')]
+
 amneziawg_sources = [
   'src/amneziawg/amneziawg.c',
   'src/amneziawg/deadline.c',
@@ -149,13 +178,14 @@ executable(
     'src/helper/amneziawg_helper_util.c',
     'src/helper/amneziawg_dns.c',
     'src/helper/amneziawg_firewall.c',
+    'src/helper/amneziawg_executable.c',
     'src/helper/amneziawg_tool.c',
     'src/helper/amneziawg_process.c',
     'src/helper/amneziawg_subprocess.c',
     'src/amneziawg/profile_report.c',
   ] + amneziawg_sources + amneziawg_runtime_sources + amneziawg_config_sources,
   dependencies: [glib_dep, gio_dep, threads_dep, json_dep],
-  include_directories: src_include,
+  include_directories: awg_include,
   install: true,
   install_dir: join_paths(get_option('libexecdir'), 'nm-sidebar'),
 )
@@ -165,13 +195,14 @@ executable(
   [
     'src/helper/amneziawg_service.c',
     'src/helper/amneziawg_helper_runner.c',
+    'src/helper/amneziawg_executable.c',
     'src/helper/amneziawg_policy.c',
     'src/helper/amneziawg_supervisor.c',
     'src/amneziawg/profile_report.c',
   ] + amneziawg_sources,
   dependencies: [glib_dep, gio_dep, polkit_dep],
   c_args: awg_service_args,
-  include_directories: src_include,
+  include_directories: awg_include,
   install: true,
   install_dir: join_paths(get_option('libexecdir'), 'nm-sidebar'),
 )
@@ -188,6 +219,11 @@ install_data(
 
 awg_service_configuration = configuration_data()
 awg_service_configuration.set('AWG_SERVICE_PATH', installed_awg_service_path)
+awg_systemd_service = get_option('awg-systemd-service')
+if awg_systemd_service.contains('\n') or awg_systemd_service.contains('\r')
+  error('awg-systemd-service must be a single line')
+endif
+awg_service_configuration.set('AWG_SYSTEMD_SERVICE', awg_systemd_service == '' ? '' : 'SystemdService=' + awg_systemd_service)
 awg_dbus_service = configure_file(
   input: 'data/dev.relz.NmSidebar.AmneziaWG.service.in',
   output: 'dev.relz.NmSidebar.AmneziaWG.service',
