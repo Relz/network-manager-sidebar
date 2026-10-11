@@ -59,19 +59,15 @@ static void dismiss_interactions(NetworkSidebarAwgPresenter *presenter);
 static void schedule_flush(NetworkSidebarAwgPresenter *presenter);
 
 NetworkSidebarAwgPresenter *
-network_sidebar_awg_presenter_ref(NetworkSidebarAwgPresenter *presenter)
-{
+network_sidebar_awg_presenter_ref(NetworkSidebarAwgPresenter *presenter) {
   if (presenter == NULL)
     return NULL;
   g_atomic_int_inc(&presenter->ref_count);
   return presenter;
 }
 
-static void
-set_external_interaction(NetworkSidebarAwgPresenter *presenter,
-                         gboolean active,
-                         gboolean notify)
-{
+static void set_external_interaction(NetworkSidebarAwgPresenter *presenter,
+                                     gboolean active, gboolean notify) {
   NetworkSidebarAwgExternalInteractionCallback callback;
   gpointer user_data;
 
@@ -90,9 +86,7 @@ set_external_interaction(NetworkSidebarAwgPresenter *presenter,
   network_sidebar_awg_presenter_unref(presenter);
 }
 
-static void
-forward_changed(guint delay_ms, gpointer user_data)
-{
+static void forward_changed(guint delay_ms, gpointer user_data) {
   NetworkSidebarAwgPresenter *presenter = user_data;
   NetworkSidebarAwgChangedCallback callback;
   gpointer callback_data;
@@ -109,9 +103,7 @@ forward_changed(guint delay_ms, gpointer user_data)
   network_sidebar_awg_presenter_unref(presenter);
 }
 
-static gboolean
-can_accept_interaction(NetworkSidebarAwgPresenter *presenter)
-{
+static gboolean can_accept_interaction(NetworkSidebarAwgPresenter *presenter) {
   g_autoptr(GObject) parent = g_weak_ref_get(&presenter->parent);
 
   return presenter->started && !presenter->stopping && parent != NULL &&
@@ -119,9 +111,7 @@ can_accept_interaction(NetworkSidebarAwgPresenter *presenter)
          presenter->pending_confirmation == NULL;
 }
 
-static gboolean
-presentation_is_mapped(NetworkSidebarAwgPresenter *presenter)
-{
+static gboolean presentation_is_mapped(NetworkSidebarAwgPresenter *presenter) {
   g_autoptr(GObject) parent = g_weak_ref_get(&presenter->parent);
   g_autoptr(GObject) overlay = g_weak_ref_get(&presenter->toast_overlay);
 
@@ -130,9 +120,7 @@ presentation_is_mapped(NetworkSidebarAwgPresenter *presenter)
          gtk_widget_get_mapped(GTK_WIDGET(overlay));
 }
 
-static void
-clear_confirmation(NetworkSidebarAwgPresenter *presenter)
-{
+static void clear_confirmation(NetworkSidebarAwgPresenter *presenter) {
   if (presenter->pending_confirmation != NULL) {
     g_free(presenter->pending_confirmation->name);
     g_clear_pointer(&presenter->pending_confirmation, g_free);
@@ -145,21 +133,22 @@ clear_confirmation(NetworkSidebarAwgPresenter *presenter)
   }
 }
 
-static void
-withdraw_toast(NetworkSidebarAwgPresenter *presenter, gboolean retain)
-{
+static void withdraw_toast(NetworkSidebarAwgPresenter *presenter,
+                           gboolean retain) {
   AdwToast *toast = g_steal_pointer(&presenter->toast);
 
   if (toast == NULL)
     return;
-  if (retain && g_strcmp0(adw_toast_get_title(toast), AWG_OMITTED_NOTICE) == 0) {
+  if (retain &&
+      g_strcmp0(adw_toast_get_title(toast), AWG_OMITTED_NOTICE) == 0) {
     presenter->notices_omitted = TRUE;
   } else if (retain && !presenter->toast_is_progress) {
     if (g_queue_get_length(&presenter->notices) == AWG_MAX_DEFERRED_NOTICES) {
       g_free(g_queue_pop_head(&presenter->notices));
       presenter->notices_omitted = TRUE;
     }
-    g_queue_push_head(&presenter->notices, g_strdup(adw_toast_get_title(toast)));
+    g_queue_push_head(&presenter->notices,
+                      g_strdup(adw_toast_get_title(toast)));
   }
   presenter->toast_is_progress = FALSE;
   g_signal_handlers_disconnect_by_data(toast, presenter);
@@ -167,11 +156,9 @@ withdraw_toast(NetworkSidebarAwgPresenter *presenter, gboolean retain)
   g_object_unref(toast);
 }
 
-static void
-toast_dismissed_cb(AdwToast *toast, gpointer user_data)
-{
+static void toast_dismissed_cb(AdwToast *toast, gpointer user_data) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter =
-    network_sidebar_awg_presenter_ref(user_data);
+      network_sidebar_awg_presenter_ref(user_data);
 
   if (presenter->toast != toast)
     return;
@@ -181,11 +168,8 @@ toast_dismissed_cb(AdwToast *toast, gpointer user_data)
   schedule_flush(presenter);
 }
 
-static void
-present_toast(NetworkSidebarAwgPresenter *presenter,
-              const char *message,
-              gboolean progress)
-{
+static void present_toast(NetworkSidebarAwgPresenter *presenter,
+                          const char *message, gboolean progress) {
   g_autoptr(GObject) overlay = g_weak_ref_get(&presenter->toast_overlay);
 
   presenter->toast = adw_toast_new(message);
@@ -196,21 +180,20 @@ present_toast(NetworkSidebarAwgPresenter *presenter,
                               g_object_ref(presenter->toast));
 }
 
-static void
-show_notice(NetworkSidebarAwgPresenter *presenter,
-            const NetworkSidebarAwgUiEvent *event)
-{
+static void show_notice(NetworkSidebarAwgPresenter *presenter,
+                        const NetworkSidebarAwgUiEvent *event) {
   g_autoptr(NetworkSidebarAwgSnapshot) snapshot = NULL;
   g_autofree char *message = NULL;
   NetworkSidebarAwgUiEvent safe_event = *event;
-  gboolean progress = event->notice == NETWORK_SIDEBAR_AWG_NOTICE_OPERATION_STARTED;
+  gboolean progress =
+      event->notice == NETWORK_SIDEBAR_AWG_NOTICE_OPERATION_STARTED;
 
   if (presenter->stopping || event->notice == NETWORK_SIDEBAR_AWG_NOTICE_NONE)
     return;
-  if (progress && (!presentation_is_mapped(presenter) ||
-                   presenter->chooser != NULL || presenter->dialog != NULL ||
-                   presenter->pending_confirmation != NULL ||
-                   presenter->toast != NULL || !g_queue_is_empty(&presenter->notices)))
+  if (progress &&
+      (!presentation_is_mapped(presenter) || presenter->chooser != NULL ||
+       presenter->dialog != NULL || presenter->pending_confirmation != NULL ||
+       presenter->toast != NULL || !g_queue_is_empty(&presenter->notices)))
     return;
   snapshot = network_sidebar_awg_controller_dup_snapshot(presenter->controller);
   if (snapshot == NULL || !snapshot->authorized) {
@@ -228,7 +211,7 @@ show_notice(NetworkSidebarAwgPresenter *presenter,
   if ((presenter->toast != NULL &&
        g_strcmp0(adw_toast_get_title(presenter->toast), message) == 0) ||
       g_queue_find_custom(&presenter->notices, message,
-                          (GCompareFunc) g_strcmp0) != NULL)
+                          (GCompareFunc)g_strcmp0) != NULL)
     return;
   if (g_queue_get_length(&presenter->notices) == AWG_MAX_DEFERRED_NOTICES) {
     g_free(g_queue_pop_head(&presenter->notices));
@@ -240,19 +223,15 @@ show_notice(NetworkSidebarAwgPresenter *presenter,
   schedule_flush(presenter);
 }
 
-static void
-chooser_response_data_free(gpointer data, GClosure *closure)
-{
+static void chooser_response_data_free(gpointer data, GClosure *closure) {
   ChooserResponseData *response_data = data;
-  (void) closure;
+  (void)closure;
 
   network_sidebar_awg_presenter_unref(response_data->presenter);
   g_free(response_data);
 }
 
-static void
-destroy_chooser(NetworkSidebarAwgPresenter *presenter)
-{
+static void destroy_chooser(NetworkSidebarAwgPresenter *presenter) {
   GtkNativeDialog *chooser = g_steal_pointer(&presenter->chooser);
   gulong handler = presenter->chooser_response_handler;
 
@@ -266,8 +245,7 @@ destroy_chooser(NetworkSidebarAwgPresenter *presenter)
 }
 
 static NetworkSidebarAwgImportError
-controller_import_error(NetworkSidebarAwgImportLoadResult result)
-{
+controller_import_error(NetworkSidebarAwgImportLoadResult result) {
   switch (result) {
   case NETWORK_SIDEBAR_AWG_IMPORT_LOAD_INSPECT_FAILED:
     return NETWORK_SIDEBAR_AWG_IMPORT_ERROR_INSPECT_FAILED;
@@ -292,12 +270,9 @@ controller_import_error(NetworkSidebarAwgImportLoadResult result)
   }
 }
 
-static void
-import_load_cb(NetworkSidebarAwgImportLoader *loader,
-               NetworkSidebarAwgImportLoadResult result,
-               GBytes *config,
-               gpointer user_data)
-{
+static void import_load_cb(NetworkSidebarAwgImportLoader *loader,
+                           NetworkSidebarAwgImportLoadResult result,
+                           GBytes *config, gpointer user_data) {
   ImportLoadData *load_data = user_data;
   NetworkSidebarAwgPresenter *presenter = load_data->presenter;
   gboolean owned = presenter->import_loader == loader;
@@ -306,14 +281,12 @@ import_load_cb(NetworkSidebarAwgImportLoader *loader,
     presenter->import_loader = NULL;
   if (!presenter->stopping) {
     if (result == NETWORK_SIDEBAR_AWG_IMPORT_LOAD_SUCCESS) {
-      network_sidebar_awg_controller_import_loaded(presenter->controller,
-                                                   load_data->activity_id,
-                                                   config);
+      network_sidebar_awg_controller_import_loaded(
+          presenter->controller, load_data->activity_id, config);
     } else if (result != NETWORK_SIDEBAR_AWG_IMPORT_LOAD_CANCELLED) {
       network_sidebar_awg_controller_import_failed(
-        presenter->controller,
-        load_data->activity_id,
-        controller_import_error(result));
+          presenter->controller, load_data->activity_id,
+          controller_import_error(result));
     }
   }
   if (owned)
@@ -322,11 +295,8 @@ import_load_cb(NetworkSidebarAwgImportLoader *loader,
   g_free(load_data);
 }
 
-static void
-start_import_load(NetworkSidebarAwgPresenter *presenter,
-                  guint64 activity_id,
-                  GFile *file)
-{
+static void start_import_load(NetworkSidebarAwgPresenter *presenter,
+                              guint64 activity_id, GFile *file) {
   ImportLoadData *load_data;
 
   if (presenter->stopping || presenter->import_loader != NULL)
@@ -334,28 +304,24 @@ start_import_load(NetworkSidebarAwgPresenter *presenter,
   load_data = g_new0(ImportLoadData, 1);
   load_data->presenter = network_sidebar_awg_presenter_ref(presenter);
   load_data->activity_id = activity_id;
-  presenter->import_loader = network_sidebar_awg_import_loader_new(
-    file, import_load_cb, load_data);
+  presenter->import_loader =
+      network_sidebar_awg_import_loader_new(file, import_load_cb, load_data);
   if (presenter->import_loader == NULL) {
     network_sidebar_awg_presenter_unref(load_data->presenter);
     g_free(load_data);
     network_sidebar_awg_controller_import_failed(
-      presenter->controller,
-      activity_id,
-      NETWORK_SIDEBAR_AWG_IMPORT_ERROR_OPEN_FAILED);
+        presenter->controller, activity_id,
+        NETWORK_SIDEBAR_AWG_IMPORT_ERROR_OPEN_FAILED);
     return;
   }
   network_sidebar_awg_import_loader_start(presenter->import_loader);
 }
 
-static void
-file_chooser_response_cb(GtkNativeDialog *dialog,
-                         int response,
-                         gpointer user_data)
-{
+static void file_chooser_response_cb(GtkNativeDialog *dialog, int response,
+                                     gpointer user_data) {
   ChooserResponseData *response_data = user_data;
   g_autoptr(NetworkSidebarAwgPresenter) presenter =
-    network_sidebar_awg_presenter_ref(response_data->presenter);
+      network_sidebar_awg_presenter_ref(response_data->presenter);
   g_autoptr(GFile) file = NULL;
   g_autofree char *basename = NULL;
   guint64 activity_id = response_data->activity_id;
@@ -369,29 +335,25 @@ file_chooser_response_cb(GtkNativeDialog *dialog,
     return;
   if (file == NULL) {
     network_sidebar_awg_controller_import_selection_cancelled(
-      presenter->controller, activity_id);
+        presenter->controller, activity_id);
     return;
   }
   basename = g_file_get_basename(file);
   if (network_sidebar_awg_controller_import_file_selected(
-        presenter->controller, activity_id, basename))
+          presenter->controller, activity_id, basename))
     start_import_load(presenter, activity_id, file);
 }
 
-static gboolean
-present_import_chooser(NetworkSidebarAwgPresenter *presenter,
-                       guint64 activity_id)
-{
+static gboolean present_import_chooser(NetworkSidebarAwgPresenter *presenter,
+                                       guint64 activity_id) {
   GtkFileChooserNative *chooser;
   GtkFileFilter *filter;
   ChooserResponseData *response_data;
 
   if (!can_accept_interaction(presenter))
     return FALSE;
-  chooser = gtk_file_chooser_native_new("Import AmneziaWG Configuration",
-                                        NULL,
-                                        GTK_FILE_CHOOSER_ACTION_OPEN,
-                                        "Import",
+  chooser = gtk_file_chooser_native_new("Import AmneziaWG Configuration", NULL,
+                                        GTK_FILE_CHOOSER_ACTION_OPEN, "Import",
                                         "Cancel");
   if (chooser == NULL)
     return FALSE;
@@ -408,12 +370,8 @@ present_import_chooser(NetworkSidebarAwgPresenter *presenter,
   response_data->presenter = network_sidebar_awg_presenter_ref(presenter);
   response_data->activity_id = activity_id;
   presenter->chooser_response_handler = g_signal_connect_data(
-    chooser,
-    "response",
-    G_CALLBACK(file_chooser_response_cb),
-    response_data,
-    chooser_response_data_free,
-    0);
+      chooser, "response", G_CALLBACK(file_chooser_response_cb), response_data,
+      chooser_response_data_free, 0);
   set_external_interaction(presenter, TRUE, TRUE);
   if (presenter->stopping || presenter->chooser == NULL) {
     destroy_chooser(presenter);
@@ -424,16 +382,12 @@ present_import_chooser(NetworkSidebarAwgPresenter *presenter,
   return TRUE;
 }
 
-static void
-on_dialog_backdrop_released(GtkGestureClick *gesture,
-                            int n_press,
-                            double x,
-                            double y,
-                            gpointer user_data)
-{
+static void on_dialog_backdrop_released(GtkGestureClick *gesture, int n_press,
+                                        double x, double y,
+                                        gpointer user_data) {
   AdwDialog *dialog = user_data;
   GtkWidget *picked;
-  (void) n_press;
+  (void)n_press;
 
   picked = gtk_widget_pick(GTK_WIDGET(dialog), x, y, GTK_PICK_DEFAULT);
   if (picked != NULL &&
@@ -443,58 +397,49 @@ on_dialog_backdrop_released(GtkGestureClick *gesture,
   }
 }
 
-static void
-close_dialog_on_backdrop_click(AdwDialog *dialog)
-{
+static void close_dialog_on_backdrop_click(AdwDialog *dialog) {
   GtkGesture *backdrop_click = gtk_gesture_click_new();
 
   gtk_event_controller_set_propagation_phase(
-    GTK_EVENT_CONTROLLER(backdrop_click), GTK_PHASE_CAPTURE);
-  g_signal_connect(backdrop_click,
-                   "released",
-                   G_CALLBACK(on_dialog_backdrop_released),
-                   dialog);
+      GTK_EVENT_CONTROLLER(backdrop_click), GTK_PHASE_CAPTURE);
+  g_signal_connect(backdrop_click, "released",
+                   G_CALLBACK(on_dialog_backdrop_released), dialog);
   gtk_widget_add_controller(GTK_WIDGET(dialog),
                             GTK_EVENT_CONTROLLER(backdrop_click));
 }
 
-static void
-confirmation_chosen_cb(GObject *source,
-                       GAsyncResult *result,
-                       gpointer user_data)
-{
+static void confirmation_chosen_cb(GObject *source, GAsyncResult *result,
+                                   gpointer user_data) {
   ConfirmationData *confirmation = user_data;
   NetworkSidebarAwgPresenter *presenter = confirmation->presenter;
-  const char *response = adw_alert_dialog_choose_finish(
-    ADW_ALERT_DIALOG(source), result);
-  gboolean confirmed = confirmation->type ==
-      NETWORK_SIDEBAR_AWG_UI_CONFIRM_REPLACE ?
-    g_strcmp0(response, "replace") == 0 :
-    g_strcmp0(response, "remove") == 0;
+  const char *response =
+      adw_alert_dialog_choose_finish(ADW_ALERT_DIALOG(source), result);
+  gboolean confirmed =
+      confirmation->type == NETWORK_SIDEBAR_AWG_UI_CONFIRM_REPLACE
+          ? g_strcmp0(response, "replace") == 0
+          : g_strcmp0(response, "remove") == 0;
 
   if (!presenter->stopping && presenter->dialog != NULL &&
       G_OBJECT(presenter->dialog) == source &&
       presenter->pending_confirmation != NULL &&
       presenter->pending_confirmation->type == confirmation->type &&
-      presenter->pending_confirmation->activity_id == confirmation->activity_id) {
+      presenter->pending_confirmation->activity_id ==
+          confirmation->activity_id) {
     g_clear_object(&presenter->dialog);
     clear_confirmation(presenter);
     if (network_sidebar_awg_controller_confirmation_is_pending(
-          presenter->controller, confirmation->type, confirmation->activity_id))
+            presenter->controller, confirmation->type,
+            confirmation->activity_id))
       network_sidebar_awg_controller_confirmation_response(
-        presenter->controller,
-        confirmation->type,
-        confirmation->activity_id,
-        confirmed);
+          presenter->controller, confirmation->type, confirmation->activity_id,
+          confirmed);
     schedule_flush(presenter);
   }
   network_sidebar_awg_presenter_unref(presenter);
   g_free(confirmation);
 }
 
-static void
-present_confirmation(NetworkSidebarAwgPresenter *presenter)
-{
+static void present_confirmation(NetworkSidebarAwgPresenter *presenter) {
   g_autoptr(GObject) parent = NULL;
   g_autofree char *heading = NULL;
   const DeferredConfirmation *pending = presenter->pending_confirmation;
@@ -506,32 +451,38 @@ present_confirmation(NetworkSidebarAwgPresenter *presenter)
 
   parent = g_weak_ref_get(&presenter->parent);
   heading = g_strdup_printf(
-    pending->type == NETWORK_SIDEBAR_AWG_UI_CONFIRM_REPLACE ? "Replace %s?" :
-                                                              "Remove %s?",
-    pending->name);
+      pending->type == NETWORK_SIDEBAR_AWG_UI_CONFIRM_REPLACE ? "Replace %s?"
+                                                              : "Remove %s?",
+      pending->name);
   if (pending->type == NETWORK_SIDEBAR_AWG_UI_CONFIRM_REPLACE) {
-    body = "A tunnel with this name already exists. Its configuration will be replaced.";
+    body = "A tunnel with this name already exists. Its configuration will be "
+           "replaced.";
     action_id = "replace";
     action_label = "Replace";
   } else {
     g_autoptr(NetworkSidebarAwgSnapshot) snapshot =
-      network_sidebar_awg_controller_dup_snapshot(presenter->controller);
+        network_sidebar_awg_controller_dup_snapshot(presenter->controller);
 
-    body = "This permanently removes the saved AmneziaWG profile and its configuration.";
+    body = "This permanently removes the saved AmneziaWG profile and its "
+           "configuration.";
     action_id = "remove";
     action_label = "Remove";
     for (guint i = 0; snapshot != NULL && i < snapshot->entries->len; i++) {
-      const NetworkSidebarAwgEntry *entry = g_ptr_array_index(snapshot->entries, i);
+      const NetworkSidebarAwgEntry *entry =
+          g_ptr_array_index(snapshot->entries, i);
 
       if (g_strcmp0(entry->name, pending->name) != 0)
         continue;
-      if (entry->display_runtime_state == NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_ACTIVE) {
+      if (entry->display_runtime_state ==
+          NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_ACTIVE) {
         body = "This disconnects the tunnel and permanently removes the saved "
                "AmneziaWG profile and its configuration.";
         action_label = "Disconnect and remove";
-      } else if (network_sidebar_amneziawg_runtime_state_is_recoverable(entry->display_runtime_state)) {
-        body = "This cleans up the tunnel's runtime state and permanently removes "
-               "the saved AmneziaWG profile and its configuration.";
+      } else if (network_sidebar_amneziawg_runtime_state_is_recoverable(
+                     entry->display_runtime_state)) {
+        body =
+            "This cleans up the tunnel's runtime state and permanently removes "
+            "the saved AmneziaWG profile and its configuration.";
         action_label = "Clean up and remove";
       }
       break;
@@ -541,13 +492,11 @@ present_confirmation(NetworkSidebarAwgPresenter *presenter)
   dialog = adw_alert_dialog_new(heading, body);
   gtk_widget_add_css_class(GTK_WIDGET(dialog), "nm-sidebar-dialog");
   adw_alert_dialog_add_response(ADW_ALERT_DIALOG(dialog), "cancel", "Cancel");
-  adw_alert_dialog_add_response(ADW_ALERT_DIALOG(dialog),
-                                action_id,
+  adw_alert_dialog_add_response(ADW_ALERT_DIALOG(dialog), action_id,
                                 action_label);
   adw_alert_dialog_set_close_response(ADW_ALERT_DIALOG(dialog), "cancel");
   adw_alert_dialog_set_default_response(ADW_ALERT_DIALOG(dialog), "cancel");
-  adw_alert_dialog_set_response_appearance(ADW_ALERT_DIALOG(dialog),
-                                           action_id,
+  adw_alert_dialog_set_response_appearance(ADW_ALERT_DIALOG(dialog), action_id,
                                            ADW_RESPONSE_DESTRUCTIVE);
   close_dialog_on_backdrop_click(dialog);
 
@@ -556,16 +505,12 @@ present_confirmation(NetworkSidebarAwgPresenter *presenter)
   confirmation->type = pending->type;
   confirmation->activity_id = pending->activity_id;
   presenter->dialog = g_object_ref_sink(dialog);
-  adw_alert_dialog_choose(ADW_ALERT_DIALOG(dialog),
-                          GTK_WIDGET(parent),
+  adw_alert_dialog_choose(ADW_ALERT_DIALOG(dialog), GTK_WIDGET(parent),
                           presenter->lifecycle_cancellable,
-                          confirmation_chosen_cb,
-                          confirmation);
+                          confirmation_chosen_cb, confirmation);
 }
 
-static gboolean
-flush_deferred_cb(gpointer user_data)
-{
+static gboolean flush_deferred_cb(gpointer user_data) {
   NetworkSidebarAwgPresenter *presenter = user_data;
   g_autofree char *message = NULL;
 
@@ -574,9 +519,8 @@ flush_deferred_cb(gpointer user_data)
     return G_SOURCE_REMOVE;
   if (presenter->pending_confirmation != NULL &&
       !network_sidebar_awg_controller_confirmation_is_pending(
-        presenter->controller,
-        presenter->pending_confirmation->type,
-        presenter->pending_confirmation->activity_id))
+          presenter->controller, presenter->pending_confirmation->type,
+          presenter->pending_confirmation->activity_id))
     clear_confirmation(presenter);
   if (!presentation_is_mapped(presenter) || presenter->chooser != NULL ||
       presenter->dialog != NULL)
@@ -599,45 +543,37 @@ flush_deferred_cb(gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
-static void
-schedule_flush(NetworkSidebarAwgPresenter *presenter)
-{
-  if (!presenter->started || presenter->stopping || presenter->flush_source != 0 ||
+static void schedule_flush(NetworkSidebarAwgPresenter *presenter) {
+  if (!presenter->started || presenter->stopping ||
+      presenter->flush_source != 0 ||
       (presenter->pending_confirmation == NULL &&
        g_queue_is_empty(&presenter->notices) && !presenter->notices_omitted))
     return;
-  presenter->flush_source = g_idle_add_full(
-    G_PRIORITY_DEFAULT_IDLE,
-    flush_deferred_cb,
-    network_sidebar_awg_presenter_ref(presenter),
-    (GDestroyNotify) network_sidebar_awg_presenter_unref);
+  presenter->flush_source =
+      g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, flush_deferred_cb,
+                      network_sidebar_awg_presenter_ref(presenter),
+                      (GDestroyNotify)network_sidebar_awg_presenter_unref);
 }
 
-static void
-parent_mapped_cb(GtkWidget *widget, gpointer user_data)
-{
-  (void) widget;
+static void parent_mapped_cb(GtkWidget *widget, gpointer user_data) {
+  (void)widget;
   schedule_flush(user_data);
 }
 
-static void
-parent_unmapped_cb(GtkWidget *widget, gpointer user_data)
-{
+static void parent_unmapped_cb(GtkWidget *widget, gpointer user_data) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter =
-    network_sidebar_awg_presenter_ref(user_data);
-  (void) widget;
+      network_sidebar_awg_presenter_ref(user_data);
+  (void)widget;
 
   withdraw_toast(presenter, !presenter->stopping);
 }
 
-static gboolean
-accept_confirmation(NetworkSidebarAwgPresenter *presenter,
-                    const NetworkSidebarAwgUiEvent *event)
-{
+static gboolean accept_confirmation(NetworkSidebarAwgPresenter *presenter,
+                                    const NetworkSidebarAwgUiEvent *event) {
   DeferredConfirmation *pending = presenter->pending_confirmation;
 
   if (!network_sidebar_awg_controller_confirmation_is_pending(
-        presenter->controller, event->type, event->activity_id))
+          presenter->controller, event->type, event->activity_id))
     return FALSE;
   if (pending != NULL)
     return pending->type == event->type &&
@@ -654,18 +590,14 @@ accept_confirmation(NetworkSidebarAwgPresenter *presenter,
   return TRUE;
 }
 
-static void
-cancel_import_interaction(NetworkSidebarAwgPresenter *presenter)
-{
+static void cancel_import_interaction(NetworkSidebarAwgPresenter *presenter) {
   destroy_chooser(presenter);
   set_external_interaction(presenter, FALSE, TRUE);
   if (presenter->import_loader != NULL)
     network_sidebar_awg_import_loader_cancel(presenter->import_loader);
 }
 
-static void
-dismiss_interactions(NetworkSidebarAwgPresenter *presenter)
-{
+static void dismiss_interactions(NetworkSidebarAwgPresenter *presenter) {
   clear_confirmation(presenter);
   g_queue_clear_full(&presenter->notices, g_free);
   presenter->notices_omitted = FALSE;
@@ -673,11 +605,10 @@ dismiss_interactions(NetworkSidebarAwgPresenter *presenter)
   cancel_import_interaction(presenter);
 }
 
-static gboolean
-controller_ui_event(const NetworkSidebarAwgUiEvent *event, gpointer user_data)
-{
+static gboolean controller_ui_event(const NetworkSidebarAwgUiEvent *event,
+                                    gpointer user_data) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter_ref =
-    network_sidebar_awg_presenter_ref(user_data);
+      network_sidebar_awg_presenter_ref(user_data);
   NetworkSidebarAwgPresenter *presenter = presenter_ref;
 
   if (presenter == NULL)
@@ -688,12 +619,13 @@ controller_ui_event(const NetworkSidebarAwgUiEvent *event, gpointer user_data)
     show_notice(presenter, event);
     return TRUE;
   case NETWORK_SIDEBAR_AWG_UI_SELECT_IMPORT:
-    return event->availability_probe ? can_accept_interaction(presenter) :
-      present_import_chooser(presenter, event->activity_id);
+    return event->availability_probe
+               ? can_accept_interaction(presenter)
+               : present_import_chooser(presenter, event->activity_id);
   case NETWORK_SIDEBAR_AWG_UI_CONFIRM_REPLACE:
   case NETWORK_SIDEBAR_AWG_UI_CONFIRM_DELETE:
-    return event->availability_probe ? can_accept_interaction(presenter) :
-      accept_confirmation(presenter, event);
+    return event->availability_probe ? can_accept_interaction(presenter)
+                                     : accept_confirmation(presenter, event);
   case NETWORK_SIDEBAR_AWG_UI_EXTERNAL_INTERACTION_ACTIVE:
     return presenter->external_interaction_active;
   case NETWORK_SIDEBAR_AWG_UI_DISMISS_ALL:
@@ -704,14 +636,11 @@ controller_ui_event(const NetworkSidebarAwgUiEvent *event, gpointer user_data)
   }
 }
 
-NetworkSidebarAwgPresenter *
-network_sidebar_awg_presenter_new(
-  NetworkSidebarAwgChangedCallback changed,
-  NetworkSidebarAwgExternalInteractionCallback external_interaction,
-  gpointer user_data)
-{
-  NetworkSidebarAwgPresenter *presenter = g_new0(
-    NetworkSidebarAwgPresenter, 1);
+NetworkSidebarAwgPresenter *network_sidebar_awg_presenter_new(
+    NetworkSidebarAwgChangedCallback changed,
+    NetworkSidebarAwgExternalInteractionCallback external_interaction,
+    gpointer user_data) {
+  NetworkSidebarAwgPresenter *presenter = g_new0(NetworkSidebarAwgPresenter, 1);
 
   presenter->ref_count = 1;
   presenter->changed = changed;
@@ -720,17 +649,15 @@ network_sidebar_awg_presenter_new(
   presenter->lifecycle_cancellable = g_cancellable_new();
   g_weak_ref_init(&presenter->parent, NULL);
   g_weak_ref_init(&presenter->toast_overlay, NULL);
-  presenter->controller = network_sidebar_awg_controller_new(forward_changed,
-                                                             presenter);
+  presenter->controller =
+      network_sidebar_awg_controller_new(forward_changed, presenter);
   network_sidebar_awg_controller_set_ui_event_callback(
-    presenter->controller, controller_ui_event, presenter);
+      presenter->controller, controller_ui_event, presenter);
   return presenter;
 }
 
-static void
-presenter_stop_internal(NetworkSidebarAwgPresenter *presenter,
-                        gboolean notify_external)
-{
+static void presenter_stop_internal(NetworkSidebarAwgPresenter *presenter,
+                                    gboolean notify_external) {
   g_autoptr(GObject) parent = NULL;
   g_autoptr(GObject) overlay = NULL;
 
@@ -750,8 +677,7 @@ presenter_stop_internal(NetworkSidebarAwgPresenter *presenter,
     presenter->external_interaction = NULL;
   /* Controller stop emits UI events; final unref must not re-enter us. */
   network_sidebar_awg_controller_set_ui_event_callback(presenter->controller,
-                                                       NULL,
-                                                       NULL);
+                                                       NULL, NULL);
   network_sidebar_awg_controller_stop(presenter->controller);
   dismiss_interactions(presenter);
   set_external_interaction(presenter, FALSE, notify_external);
@@ -762,9 +688,8 @@ presenter_stop_internal(NetworkSidebarAwgPresenter *presenter,
   g_weak_ref_set(&presenter->toast_overlay, NULL);
 }
 
-void
-network_sidebar_awg_presenter_unref(NetworkSidebarAwgPresenter *presenter)
-{
+void network_sidebar_awg_presenter_unref(
+    NetworkSidebarAwgPresenter *presenter) {
   if (presenter == NULL)
     return;
   if (!g_atomic_int_dec_and_test(&presenter->ref_count))
@@ -773,39 +698,32 @@ network_sidebar_awg_presenter_unref(NetworkSidebarAwgPresenter *presenter)
   presenter_stop_internal(presenter, FALSE);
   g_clear_pointer(&presenter->import_loader,
                   network_sidebar_awg_import_loader_unref);
-  g_clear_pointer(&presenter->controller,
-                  network_sidebar_awg_controller_unref);
+  g_clear_pointer(&presenter->controller, network_sidebar_awg_controller_unref);
   g_clear_object(&presenter->lifecycle_cancellable);
   g_weak_ref_clear(&presenter->parent);
   g_weak_ref_clear(&presenter->toast_overlay);
   g_free(presenter);
 }
 
-void
-network_sidebar_awg_presenter_start(NetworkSidebarAwgPresenter *presenter)
-{
+void network_sidebar_awg_presenter_start(
+    NetworkSidebarAwgPresenter *presenter) {
   if (presenter == NULL || presenter->started || presenter->stopping)
     return;
   presenter->started = TRUE;
   network_sidebar_awg_controller_start(presenter->controller);
 }
 
-void
-network_sidebar_awg_presenter_stop(NetworkSidebarAwgPresenter *presenter)
-{
+void network_sidebar_awg_presenter_stop(NetworkSidebarAwgPresenter *presenter) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter_ref =
-    network_sidebar_awg_presenter_ref(presenter);
+      network_sidebar_awg_presenter_ref(presenter);
 
   if (presenter_ref != NULL)
     presenter_stop_internal(presenter_ref, TRUE);
 }
 
-void
-network_sidebar_awg_presenter_set_parent(
-  NetworkSidebarAwgPresenter *presenter,
-  GtkWindow *parent,
-  AdwToastOverlay *toast_overlay)
-{
+void network_sidebar_awg_presenter_set_parent(
+    NetworkSidebarAwgPresenter *presenter, GtkWindow *parent,
+    AdwToastOverlay *toast_overlay) {
   g_autoptr(GObject) previous_parent = NULL;
   g_autoptr(GObject) previous_overlay = NULL;
 
@@ -834,37 +752,34 @@ network_sidebar_awg_presenter_set_parent(
   g_weak_ref_set(&presenter->toast_overlay, toast_overlay);
   if (parent != NULL) {
     g_signal_connect(parent, "map", G_CALLBACK(parent_mapped_cb), presenter);
-    g_signal_connect(parent, "unmap", G_CALLBACK(parent_unmapped_cb), presenter);
+    g_signal_connect(parent, "unmap", G_CALLBACK(parent_unmapped_cb),
+                     presenter);
   }
   if (toast_overlay != NULL)
-    g_signal_connect(toast_overlay, "map", G_CALLBACK(parent_mapped_cb), presenter);
+    g_signal_connect(toast_overlay, "map", G_CALLBACK(parent_mapped_cb),
+                     presenter);
   schedule_flush(presenter);
 }
 
-NetworkSidebarAwgController *
-network_sidebar_awg_presenter_get_controller(
-  NetworkSidebarAwgPresenter *presenter)
-{
+NetworkSidebarAwgController *network_sidebar_awg_presenter_get_controller(
+    NetworkSidebarAwgPresenter *presenter) {
   return presenter != NULL ? presenter->controller : NULL;
 }
 
-void
-network_sidebar_awg_presenter_import(NetworkSidebarAwgPresenter *presenter)
-{
+void network_sidebar_awg_presenter_import(
+    NetworkSidebarAwgPresenter *presenter) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter_ref =
-    network_sidebar_awg_presenter_ref(presenter);
+      network_sidebar_awg_presenter_ref(presenter);
 
   if (presenter_ref == NULL || presenter_ref->stopping)
     return;
   network_sidebar_awg_controller_import(presenter_ref->controller);
 }
 
-void
-network_sidebar_awg_presenter_cancel_import(
-  NetworkSidebarAwgPresenter *presenter)
-{
+void network_sidebar_awg_presenter_cancel_import(
+    NetworkSidebarAwgPresenter *presenter) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter_ref =
-    network_sidebar_awg_presenter_ref(presenter);
+      network_sidebar_awg_presenter_ref(presenter);
 
   if (presenter_ref == NULL || presenter_ref->stopping)
     return;
@@ -872,28 +787,21 @@ network_sidebar_awg_presenter_cancel_import(
   network_sidebar_awg_controller_cancel_import(presenter_ref->controller);
 }
 
-void
-network_sidebar_awg_presenter_set_active(NetworkSidebarAwgPresenter *presenter,
-                                         const char *name,
-                                         gboolean active)
-{
+void network_sidebar_awg_presenter_set_active(
+    NetworkSidebarAwgPresenter *presenter, const char *name, gboolean active) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter_ref =
-    network_sidebar_awg_presenter_ref(presenter);
+      network_sidebar_awg_presenter_ref(presenter);
 
   if (presenter_ref == NULL || presenter_ref->stopping)
     return;
-  network_sidebar_awg_controller_set_active(presenter_ref->controller,
-                                            name,
+  network_sidebar_awg_controller_set_active(presenter_ref->controller, name,
                                             active);
 }
 
-void
-network_sidebar_awg_presenter_request_delete(
-  NetworkSidebarAwgPresenter *presenter,
-  const char *name)
-{
+void network_sidebar_awg_presenter_request_delete(
+    NetworkSidebarAwgPresenter *presenter, const char *name) {
   g_autoptr(NetworkSidebarAwgPresenter) presenter_ref =
-    network_sidebar_awg_presenter_ref(presenter);
+      network_sidebar_awg_presenter_ref(presenter);
 
   if (presenter_ref == NULL || presenter_ref->stopping)
     return;

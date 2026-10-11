@@ -11,20 +11,16 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-static void
-set_socket_timeout(int fd, double seconds)
-{
+static void set_socket_timeout(int fd, double seconds) {
   struct timeval timeout;
 
-  timeout.tv_sec = (time_t) seconds;
-  timeout.tv_usec = (suseconds_t) ((seconds - timeout.tv_sec) * 1000000.0);
+  timeout.tv_sec = (time_t)seconds;
+  timeout.tv_usec = (suseconds_t)((seconds - timeout.tv_sec) * 1000000.0);
   setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 }
 
-static gboolean
-send_all(int fd, const char *data, gsize length)
-{
+static gboolean send_all(int fd, const char *data, gsize length) {
   while (length > 0) {
     ssize_t written = send(fd, data, length, MSG_NOSIGNAL);
     if (written < 0 && errno == EINTR)
@@ -32,20 +28,20 @@ send_all(int fd, const char *data, gsize length)
     if (written <= 0)
       return FALSE;
     data += written;
-    length -= (gsize) written;
+    length -= (gsize)written;
   }
   return TRUE;
 }
 
-NetworkSidebarSocketProbeStatus
-network_sidebar_probe_socket(const char *path)
-{
-  g_autofree char *expected = network_sidebar_success_response(NETWORK_SIDEBAR_COMMAND_PING);
+NetworkSidebarSocketProbeStatus network_sidebar_probe_socket(const char *path) {
+  g_autofree char *expected =
+      network_sidebar_success_response(NETWORK_SIDEBAR_COMMAND_PING);
   char response[128];
   gsize used = 0;
   struct sockaddr_un address;
   int fd = -1;
-  NetworkSidebarSocketProbeStatus status = NETWORK_SIDEBAR_SOCKET_PROBE_UNACKNOWLEDGED;
+  NetworkSidebarSocketProbeStatus status =
+      NETWORK_SIDEBAR_SOCKET_PROBE_UNACKNOWLEDGED;
 
   fd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (fd < 0)
@@ -59,7 +55,7 @@ network_sidebar_probe_socket(const char *path)
     goto out;
   g_strlcpy(address.sun_path, path, sizeof(address.sun_path));
 
-  if (connect(fd, (struct sockaddr *) &address, sizeof(address)) != 0) {
+  if (connect(fd, (struct sockaddr *)&address, sizeof(address)) != 0) {
     if (errno == ECONNREFUSED || errno == ENOENT)
       status = NETWORK_SIDEBAR_SOCKET_PROBE_NOT_CONNECTABLE;
     goto out;
@@ -78,11 +74,11 @@ network_sidebar_probe_socket(const char *path)
     }
     if (received == 0)
       goto out;
-    if (memchr(response + used, '\n', (gsize) received) != NULL) {
-      used += (gsize) received;
+    if (memchr(response + used, '\n', (gsize)received) != NULL) {
+      used += (gsize)received;
       break;
     }
-    used += (gsize) received;
+    used += (gsize)received;
   }
 
   response[MIN(used, sizeof(response) - 1)] = '\0';
@@ -94,22 +90,18 @@ out:
   return status;
 }
 
-gboolean
-network_sidebar_socket_acknowledges_ping(const char *path)
-{
-  return network_sidebar_probe_socket(path) == NETWORK_SIDEBAR_SOCKET_PROBE_ACKNOWLEDGED;
+gboolean network_sidebar_socket_acknowledges_ping(const char *path) {
+  return network_sidebar_probe_socket(path) ==
+         NETWORK_SIDEBAR_SOCKET_PROBE_ACKNOWLEDGED;
 }
 
-void
-network_sidebar_send_success_response(int fd, const char *command)
-{
+void network_sidebar_send_success_response(int fd, const char *command) {
   g_autofree char *response = network_sidebar_success_response(command);
   send_all(fd, response, strlen(response));
 }
 
-gboolean
-network_sidebar_read_command(int fd, char **command, char **target_output_name)
-{
+gboolean network_sidebar_read_command(int fd, char **command,
+                                      char **target_output_name) {
   char data[NETWORK_SIDEBAR_COMMAND_MAX_BYTES + 1];
   gsize used = 0;
   char *newline = NULL;
@@ -123,7 +115,8 @@ network_sidebar_read_command(int fd, char **command, char **target_output_name)
   set_socket_timeout(fd, NETWORK_SIDEBAR_COMMAND_READ_TIMEOUT_SECONDS);
 
   while (used < NETWORK_SIDEBAR_COMMAND_MAX_BYTES) {
-    ssize_t received = recv(fd, data + used, NETWORK_SIDEBAR_COMMAND_MAX_BYTES - used, 0);
+    ssize_t received =
+        recv(fd, data + used, NETWORK_SIDEBAR_COMMAND_MAX_BYTES - used, 0);
     if (received < 0) {
       if (errno == EINTR)
         continue;
@@ -131,8 +124,8 @@ network_sidebar_read_command(int fd, char **command, char **target_output_name)
     }
     if (received == 0)
       return FALSE;
-    newline = memchr(data + used, '\n', (gsize) received);
-    used += (gsize) received;
+    newline = memchr(data + used, '\n', (gsize)received);
+    used += (gsize)received;
     if (newline != NULL)
       break;
   }
@@ -154,9 +147,7 @@ network_sidebar_read_command(int fd, char **command, char **target_output_name)
   return TRUE;
 }
 
-const char *
-network_sidebar_file_type_name(mode_t mode)
-{
+const char *network_sidebar_file_type_name(mode_t mode) {
   if (S_ISDIR(mode))
     return "directory";
   if (S_ISLNK(mode))

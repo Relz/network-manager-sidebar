@@ -18,11 +18,10 @@ typedef struct {
   gboolean failed_before_routes;
 } AwgQuickResult;
 
-AwgQuickResult awg_helper_quick_run(
-  const char *command,
-  const char *config_path,
-  guint8 **standard_output,
-  gsize *standard_output_length,
-  gint64 outer_deadline);
+AwgQuickResult awg_helper_quick_run(const char *command,
+                                    const char *config_path,
+                                    guint8 **standard_output,
+                                    gsize *standard_output_length,
+                                    gint64 outer_deadline);
 
 #endif

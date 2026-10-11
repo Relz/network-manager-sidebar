@@ -8,7 +8,8 @@ G_BEGIN_DECLS
 #define NETWORK_SIDEBAR_AMNEZIAWG_CONFIG_DIR "/etc/amnezia/amneziawg"
 #define NETWORK_SIDEBAR_AMNEZIAWG_STAGING_DIR "/etc/amnezia/amneziawg/.staging"
 #define NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR "/run/nm-sidebar/amneziawg"
-#define NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFIG_DIR "/run/nm-sidebar/amneziawg/.configs"
+#define NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFIG_DIR                           \
+  "/run/nm-sidebar/amneziawg/.configs"
 #define NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH 15
 #define NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH 32
 #define NETWORK_SIDEBAR_AMNEZIAWG_LINK_ALIAS_PREFIX "nm-sidebar-awg-"
@@ -98,7 +99,7 @@ typedef enum {
 gboolean network_sidebar_amneziawg_name_is_valid(const char *name);
 gboolean network_sidebar_amneziawg_profile_status_is_valid(guint status);
 gboolean network_sidebar_amneziawg_profile_status_allows_removal(
-  NetworkSidebarAmneziaWGProfileStatus status);
+    NetworkSidebarAmneziaWGProfileStatus status);
 gboolean network_sidebar_amneziawg_helper_exit_is_valid(guint status);
 
 /* Uses the basename, removes a case-insensitive .conf suffix, replaces runs of

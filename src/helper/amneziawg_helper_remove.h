@@ -6,10 +6,9 @@
 
 /* The caller retains the runtime lock and supervision across cleanup and
  * deletion. A failed cleanup always retains the saved profile. */
-NetworkSidebarAmneziaWGHelperExit awg_helper_remove(
-  AwgHelperStorage *storage,
-  AwgHelperProfiles *profiles,
-  const char *name,
-  const NetworkSidebarAmneziaWGDeadlines *deadlines);
+NetworkSidebarAmneziaWGHelperExit
+awg_helper_remove(AwgHelperStorage *storage, AwgHelperProfiles *profiles,
+                  const char *name,
+                  const NetworkSidebarAmneziaWGDeadlines *deadlines);
 
 #endif

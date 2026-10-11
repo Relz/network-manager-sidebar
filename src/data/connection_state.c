@@ -1,8 +1,7 @@
 #include "data/connection_state.h"
 
 NetworkSidebarRowState
-network_sidebar_connection_row_state(NMActiveConnection *active)
-{
+network_sidebar_connection_row_state(NMActiveConnection *active) {
   NMActiveConnectionState state;
 
   if (active == NULL)
@@ -17,9 +16,9 @@ network_sidebar_connection_row_state(NMActiveConnection *active)
 }
 
 NetworkSidebarRowState
-network_sidebar_device_row_state(NMDevice *device, NMActiveConnection *active)
-{
-  NetworkSidebarRowState active_state = network_sidebar_connection_row_state(active);
+network_sidebar_device_row_state(NMDevice *device, NMActiveConnection *active) {
+  NetworkSidebarRowState active_state =
+      network_sidebar_connection_row_state(active);
   NMDeviceState state;
 
   if (active_state != NETWORK_SIDEBAR_ROW_STATE_NONE)
@@ -50,9 +49,9 @@ network_sidebar_device_row_state(NMDevice *device, NMActiveConnection *active)
 }
 
 NetworkSidebarRowState
-network_sidebar_vpn_row_state(NMActiveConnection *active)
-{
-  NetworkSidebarRowState generic_state = network_sidebar_connection_row_state(active);
+network_sidebar_vpn_row_state(NMActiveConnection *active) {
+  NetworkSidebarRowState generic_state =
+      network_sidebar_connection_row_state(active);
 
   if (active == NULL)
     return NETWORK_SIDEBAR_ROW_STATE_NONE;
@@ -72,6 +71,8 @@ network_sidebar_vpn_row_state(NMActiveConnection *active)
   case NM_VPN_CONNECTION_STATE_DISCONNECTED:
     return NETWORK_SIDEBAR_ROW_STATE_DISCONNECTED;
   default:
-    return generic_state == NETWORK_SIDEBAR_ROW_STATE_ACTIVE ? NETWORK_SIDEBAR_ROW_STATE_NONE : generic_state;
+    return generic_state == NETWORK_SIDEBAR_ROW_STATE_ACTIVE
+               ? NETWORK_SIDEBAR_ROW_STATE_NONE
+               : generic_state;
   }
 }

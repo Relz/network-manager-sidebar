@@ -10,9 +10,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-static gboolean
-send_all(int fd, const char *data, gsize length)
-{
+static gboolean send_all(int fd, const char *data, gsize length) {
   while (length > 0) {
     ssize_t written = send(fd, data, length, MSG_NOSIGNAL);
     if (written < 0 && errno == EINTR)
@@ -20,25 +18,21 @@ send_all(int fd, const char *data, gsize length)
     if (written <= 0)
       return FALSE;
     data += written;
-    length -= (gsize) written;
+    length -= (gsize)written;
   }
   return TRUE;
 }
 
-static void
-set_socket_timeout(int fd, double seconds)
-{
+static void set_socket_timeout(int fd, double seconds) {
   struct timeval timeout;
 
-  timeout.tv_sec = (time_t) seconds;
-  timeout.tv_usec = (suseconds_t) ((seconds - timeout.tv_sec) * 1000000.0);
+  timeout.tv_sec = (time_t)seconds;
+  timeout.tv_usec = (suseconds_t)((seconds - timeout.tv_sec) * 1000000.0);
   setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
   setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 }
 
-static char *
-utf8_strip_copy(const char *value)
-{
+static char *utf8_strip_copy(const char *value) {
   const char *start;
   const char *end;
 
@@ -68,31 +62,28 @@ utf8_strip_copy(const char *value)
   return g_strndup(start, end - start);
 }
 
-char *
-network_sidebar_normalize_command(const char *command)
-{
+char *network_sidebar_normalize_command(const char *command) {
   g_autofree char *trimmed = NULL;
 
   trimmed = utf8_strip_copy(command);
   return g_utf8_strdown(trimmed, -1);
 }
 
-char *
-network_sidebar_encode_command(const char *command, const char *target_output_name)
-{
-  g_autofree char *normalized_command = network_sidebar_normalize_command(command);
-  g_autofree char *normalized_output = network_sidebar_normalize_target_output(target_output_name);
+char *network_sidebar_encode_command(const char *command,
+                                     const char *target_output_name) {
+  g_autofree char *normalized_command =
+      network_sidebar_normalize_command(command);
+  g_autofree char *normalized_output =
+      network_sidebar_normalize_target_output(target_output_name);
 
   if (normalized_output == NULL)
     return g_strdup_printf("%s\n", normalized_command);
   return g_strdup_printf("%s\t%s\n", normalized_command, normalized_output);
 }
 
-gboolean
-network_sidebar_parse_command_line(const char *command_line,
-                                   char **command,
-                                   char **target_output_name)
-{
+gboolean network_sidebar_parse_command_line(const char *command_line,
+                                            char **command,
+                                            char **target_output_name) {
   const char *separator = NULL;
 
   g_return_val_if_fail(command != NULL, FALSE);
@@ -111,30 +102,31 @@ network_sidebar_parse_command_line(const char *command_line,
   }
 
   {
-    g_autofree char *raw_command = g_strndup(command_line, separator - command_line);
+    g_autofree char *raw_command =
+        g_strndup(command_line, separator - command_line);
     *command = network_sidebar_normalize_command(raw_command);
   }
   *target_output_name = network_sidebar_normalize_target_output(separator + 1);
   return TRUE;
 }
 
-char *
-network_sidebar_success_response(const char *command)
-{
-  g_autofree char *normalized_command = network_sidebar_normalize_command(command);
-  return g_strdup_printf("%s ok %s\n", NETWORK_SIDEBAR_IPC_PROTOCOL, normalized_command);
+char *network_sidebar_success_response(const char *command) {
+  g_autofree char *normalized_command =
+      network_sidebar_normalize_command(command);
+  return g_strdup_printf("%s ok %s\n", NETWORK_SIDEBAR_IPC_PROTOCOL,
+                         normalized_command);
 }
 
 static NetworkSidebarIPCCommandStatus
-read_response_status(int fd, const char *command)
-{
+read_response_status(int fd, const char *command) {
   g_autofree char *expected = network_sidebar_success_response(command);
   char response[NETWORK_SIDEBAR_IPC_MAX_RESPONSE_BYTES + 1];
   gsize used = 0;
 
   memset(response, 0, sizeof(response));
   while (used < NETWORK_SIDEBAR_IPC_MAX_RESPONSE_BYTES) {
-    ssize_t received = recv(fd, response + used, NETWORK_SIDEBAR_IPC_MAX_RESPONSE_BYTES - used, 0);
+    ssize_t received = recv(fd, response + used,
+                            NETWORK_SIDEBAR_IPC_MAX_RESPONSE_BYTES - used, 0);
     if (received < 0) {
       if (errno == EINTR)
         continue;
@@ -143,28 +135,30 @@ read_response_status(int fd, const char *command)
     if (received == 0)
       return NETWORK_SIDEBAR_IPC_COMMAND_DELIVERED;
 
-    if (memchr(response + used, '\n', (gsize) received) != NULL) {
-      used += (gsize) received;
+    if (memchr(response + used, '\n', (gsize)received) != NULL) {
+      used += (gsize)received;
       response[used] = '\0';
       if (g_strcmp0(response, expected) == 0)
         return NETWORK_SIDEBAR_IPC_COMMAND_ACKNOWLEDGED;
       return NETWORK_SIDEBAR_IPC_COMMAND_DELIVERED;
     }
-    used += (gsize) received;
+    used += (gsize)received;
   }
 
   return NETWORK_SIDEBAR_IPC_COMMAND_DELIVERED;
 }
 
 NetworkSidebarIPCCommandStatus
-network_sidebar_send_command(const char *command, const char *target_output_name, GError **error)
-{
-  g_autofree char *normalized_command = network_sidebar_normalize_command(command);
+network_sidebar_send_command(const char *command,
+                             const char *target_output_name, GError **error) {
+  g_autofree char *normalized_command =
+      network_sidebar_normalize_command(command);
   g_autofree char *path = NULL;
   g_autofree char *payload = NULL;
   struct sockaddr_un address;
   int fd = -1;
-  NetworkSidebarIPCCommandStatus status = NETWORK_SIDEBAR_IPC_COMMAND_NOT_DELIVERED;
+  NetworkSidebarIPCCommandStatus status =
+      NETWORK_SIDEBAR_IPC_COMMAND_NOT_DELIVERED;
 
   if (*normalized_command == '\0')
     return NETWORK_SIDEBAR_IPC_COMMAND_NOT_DELIVERED;
@@ -185,10 +179,11 @@ network_sidebar_send_command(const char *command, const char *target_output_name
     goto out;
   g_strlcpy(address.sun_path, path, sizeof(address.sun_path));
 
-  if (connect(fd, (struct sockaddr *) &address, sizeof(address)) != 0)
+  if (connect(fd, (struct sockaddr *)&address, sizeof(address)) != 0)
     goto out;
 
-  payload = network_sidebar_encode_command(normalized_command, target_output_name);
+  payload =
+      network_sidebar_encode_command(normalized_command, target_output_name);
   if (!send_all(fd, payload, strlen(payload)))
     goto out;
 

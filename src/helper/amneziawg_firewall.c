@@ -17,28 +17,24 @@ typedef struct {
 } IptablesReader;
 
 static const IptablesReader iptables_readers[] = {
-  { NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP4_LEGACY,
-    "iptables-legacy-save", "iptables-save", "(legacy)" },
-  { NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP6_LEGACY,
-    "ip6tables-legacy-save", "ip6tables-save", "(legacy)" },
-  { NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP4_NFT,
-    "iptables-nft-save", "iptables-save", "(nf_tables)" },
-  { NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP6_NFT,
-    "ip6tables-nft-save", "ip6tables-save", "(nf_tables)" },
+    {NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP4_LEGACY, "iptables-legacy-save",
+     "iptables-save", "(legacy)"},
+    {NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP6_LEGACY, "ip6tables-legacy-save",
+     "ip6tables-save", "(legacy)"},
+    {NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP4_NFT, "iptables-nft-save",
+     "iptables-save", "(nf_tables)"},
+    {NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_IP6_NFT, "ip6tables-nft-save",
+     "ip6tables-save", "(nf_tables)"},
 };
 
-static gboolean
-within_deadline(gint64 deadline)
-{
+static gboolean within_deadline(gint64 deadline) {
   gint64 now = network_sidebar_amneziawg_process_monotonic_msec();
 
   return now >= 0 && now < deadline &&
          !network_sidebar_amneziawg_process_termination_requested();
 }
 
-static char *
-output_text(GBytes *output)
-{
+static char *output_text(GBytes *output) {
   gsize length;
   const char *data;
 
@@ -47,15 +43,14 @@ output_text(GBytes *output)
   data = g_bytes_get_data(output, &length);
   if (length > AWG_TOOL_OUTPUT_LIMIT ||
       (length != 0 && (memchr(data, '\0', length) != NULL ||
-                      !g_utf8_validate(data, length, NULL))))
+                       !g_utf8_validate(data, length, NULL))))
     return NULL;
   return length == 0 ? g_strdup("") : g_strndup(data, length);
 }
 
-static char *
-tool_version(AwgTool *executable, const char *tool, gint64 deadline)
-{
-  const char *const argv[] = { tool, "--version", NULL };
+static char *tool_version(AwgTool *executable, const char *tool,
+                          gint64 deadline) {
+  const char *const argv[] = {tool, "--version", NULL};
   g_autoptr(GBytes) output = NULL;
   char *text;
 
@@ -67,18 +62,17 @@ tool_version(AwgTool *executable, const char *tool, gint64 deadline)
   return text;
 }
 
-gboolean
-awg_firewall_capture_scope(gint64 outer_deadline, guint *scope)
-{
-  static const char *const generic_tools[] = { "iptables", "ip6tables" };
+gboolean awg_firewall_capture_scope(gint64 outer_deadline, guint *scope) {
+  static const char *const generic_tools[] = {"iptables", "ip6tables"};
   gint64 deadline = network_sidebar_amneziawg_deadline_cap(
-    network_sidebar_amneziawg_process_monotonic_msec(), outer_deadline,
-    FIREWALL_BUDGET_MSEC);
+      network_sidebar_amneziawg_process_monotonic_msec(), outer_deadline,
+      FIREWALL_BUDGET_MSEC);
   AwgToolAvailability availability;
   guint found = 0;
 
   g_return_val_if_fail(scope != NULL, FALSE);
-  /* A caller retaining data after an inspection failure must be conservative. */
+  /* A caller retaining data after an inspection failure must be conservative.
+   */
   *scope = NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_ALL;
   if (!within_deadline(deadline))
     return FALSE;
@@ -120,19 +114,16 @@ awg_firewall_capture_scope(gint64 outer_deadline, guint *scope)
   return TRUE;
 }
 
-static const char *
-string_member(JsonObject *object, const char *name)
-{
+static const char *string_member(JsonObject *object, const char *name) {
   JsonNode *node = json_object_get_member(object, name);
 
   return node != NULL && JSON_NODE_HOLDS_VALUE(node) &&
-         json_node_get_value_type(node) == G_TYPE_STRING ?
-    json_node_get_string(node) : NULL;
+                 json_node_get_value_type(node) == G_TYPE_STRING
+             ? json_node_get_string(node)
+             : NULL;
 }
 
-static AwgFirewallState
-parse_nft_tables(const char *name, GBytes *output)
-{
+static AwgFirewallState parse_nft_tables(const char *name, GBytes *output) {
   g_autofree char *text = output_text(output);
   g_autofree char *expected = g_strdup_printf("wg-quick-%s", name);
   g_autoptr(JsonParser) parser = json_parser_new();
@@ -172,7 +163,8 @@ parse_nft_tables(const char *name, GBytes *output)
 
       if (!JSON_NODE_HOLDS_OBJECT(node))
         return AWG_FIREWALL_UNKNOWN;
-      schema = json_object_get_member(json_node_get_object(node), "json_schema_version");
+      schema = json_object_get_member(json_node_get_object(node),
+                                      "json_schema_version");
       if (schema == NULL || !JSON_NODE_HOLDS_VALUE(schema) ||
           json_node_get_value_type(schema) != G_TYPE_INT64 ||
           json_node_get_int(schema) != 1)
@@ -185,7 +177,8 @@ parse_nft_tables(const char *name, GBytes *output)
     table = json_node_get_object(node);
     family = string_member(table, "family");
     table_name = string_member(table, "name");
-    if (family == NULL || *family == '\0' || table_name == NULL || *table_name == '\0')
+    if (family == NULL || *family == '\0' || table_name == NULL ||
+        *table_name == '\0')
       return AWG_FIREWALL_UNKNOWN;
     if (strcmp(table_name, expected) == 0)
       present = TRUE;
@@ -193,9 +186,7 @@ parse_nft_tables(const char *name, GBytes *output)
   return present ? AWG_FIREWALL_PRESENT : AWG_FIREWALL_ABSENT;
 }
 
-static gboolean
-counter_pair(const char *text)
-{
+static gboolean counter_pair(const char *text) {
   const char *cursor = text;
 
   if (*cursor++ != '[' || !g_ascii_isdigit(*cursor))
@@ -209,9 +200,7 @@ counter_pair(const char *text)
   return strcmp(cursor, "]") == 0;
 }
 
-static AwgFirewallState
-parse_iptables_save(const char *name, GBytes *output)
-{
+static AwgFirewallState parse_iptables_save(const char *name, GBytes *output) {
   g_autofree char *text = output_text(output);
   g_autofree char *expected = g_strdup_printf("awg-quick(8) rule for %s", name);
   g_auto(GStrv) lines = NULL;
@@ -266,9 +255,9 @@ parse_iptables_save(const char *name, GBytes *output)
   return present ? AWG_FIREWALL_PRESENT : AWG_FIREWALL_ABSENT;
 }
 
-static AwgFirewallState
-probe_iptables(const char *name, const IptablesReader *reader, gint64 deadline)
-{
+static AwgFirewallState probe_iptables(const char *name,
+                                       const IptablesReader *reader,
+                                       gint64 deadline) {
   const char *tool = reader->reader;
   AwgToolAvailability availability = awg_tool_available(tool);
   g_autofree char *version = NULL;
@@ -291,12 +280,11 @@ probe_iptables(const char *name, const IptablesReader *reader, gint64 deadline)
   return parse_iptables_save(name, output);
 }
 
-AwgFirewallState
-awg_firewall_probe(const char *name, guint scope, gint64 outer_deadline)
-{
+AwgFirewallState awg_firewall_probe(const char *name, guint scope,
+                                    gint64 outer_deadline) {
   gint64 deadline = network_sidebar_amneziawg_deadline_cap(
-    network_sidebar_amneziawg_process_monotonic_msec(), outer_deadline,
-    FIREWALL_BUDGET_MSEC);
+      network_sidebar_amneziawg_process_monotonic_msec(), outer_deadline,
+      FIREWALL_BUDGET_MSEC);
   AwgFirewallState result = AWG_FIREWALL_ABSENT;
 
   if (!network_sidebar_amneziawg_name_is_valid(name) ||
@@ -304,7 +292,7 @@ awg_firewall_probe(const char *name, guint scope, gint64 outer_deadline)
       !within_deadline(deadline))
     return AWG_FIREWALL_UNKNOWN;
   if ((scope & NETWORK_SIDEBAR_AMNEZIAWG_FIREWALL_NFT) != 0) {
-    const char *const argv[] = { "nft", "--json", "list", "tables", NULL };
+    const char *const argv[] = {"nft", "--json", "list", "tables", NULL};
     g_autoptr(GBytes) output = NULL;
     g_autoptr(AwgTool) executable = awg_tool_open("nft");
 

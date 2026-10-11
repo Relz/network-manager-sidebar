@@ -19,7 +19,8 @@ typedef enum {
 NetworkSidebarSocketProbeStatus network_sidebar_probe_socket(const char *path);
 gboolean network_sidebar_socket_acknowledges_ping(const char *path);
 void network_sidebar_send_success_response(int fd, const char *command);
-gboolean network_sidebar_read_command(int fd, char **command, char **target_output_name);
+gboolean network_sidebar_read_command(int fd, char **command,
+                                      char **target_output_name);
 const char *network_sidebar_file_type_name(mode_t mode);
 
 G_END_DECLS

@@ -13,8 +13,7 @@ typedef enum {
  * changes. A missing required reader during a later probe means UNKNOWN. */
 gboolean awg_firewall_capture_scope(gint64 deadline, guint *scope);
 /* Read-only. Names/comments identify candidates, never permission to delete. */
-AwgFirewallState awg_firewall_probe(const char *name,
-                                    guint scope,
+AwgFirewallState awg_firewall_probe(const char *name, guint scope,
                                     gint64 deadline);
 
 #endif

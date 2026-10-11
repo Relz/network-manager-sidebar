@@ -24,9 +24,7 @@
 G_STATIC_ASSERT(NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INPUT_FAILED == 16);
 G_STATIC_ASSERT(NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SWITCH_CLEANUP_FAILED < 128);
 
-static gboolean
-parse_absolute_deadline(const char *text, gint64 *deadline)
-{
+static gboolean parse_absolute_deadline(const char *text, gint64 *deadline) {
   char *end = NULL;
   guint64 value;
 
@@ -40,25 +38,23 @@ parse_absolute_deadline(const char *text, gint64 *deadline)
   value = g_ascii_strtoull(text, &end, 10);
   if (errno != 0 || end == text || *end != '\0' || value > G_MAXINT64)
     return FALSE;
-  *deadline = (gint64) value;
+  *deadline = (gint64)value;
   return TRUE;
 }
 
-int
-main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   AwgHelperStorage *storage = NULL;
   AwgHelperProfiles *profiles = NULL;
   AwgHelperTunnel *tunnel = NULL;
   AwgHelperProfileInput *input = NULL;
   NetworkSidebarAmneziaWGHelperExit result;
-  NetworkSidebarAmneziaWGDeadlines deadlines = { 0 };
+  NetworkSidebarAmneziaWGDeadlines deadlines = {0};
   char config_name[NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH + 6];
   char snapshot_path[PATH_MAX];
   const char *command;
   const char *name;
   gboolean list_profiles_requested;
-  struct sigaction signal_action = { 0 };
+  struct sigaction signal_action = {0};
 
   umask(0077);
   if (argc != 5)
@@ -70,8 +66,8 @@ main(int argc, char **argv)
       deadlines.forward_at > deadlines.cleanup_at)
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_USAGE;
   deadlines.hard_at = deadlines.cleanup_at;
-  list_profiles_requested = strcmp(
-    command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_LIST_PROFILES) == 0;
+  list_profiles_requested =
+      strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_LIST_PROFILES) == 0;
   if (strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_IMPORT) != 0 &&
       strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_REPLACE) != 0 &&
       strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_UP) != 0 &&
@@ -86,7 +82,7 @@ main(int argc, char **argv)
   if (geteuid() != 0)
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_NOT_ROOT;
   if (!network_sidebar_amneziawg_process_init(
-        NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_FD, deadlines.cleanup_at))
+          NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_FD, deadlines.cleanup_at))
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SETUP_FAILED;
   signal_action.sa_handler = SIG_IGN;
   sigemptyset(&signal_action.sa_mask);
@@ -99,12 +95,10 @@ main(int argc, char **argv)
   if (!sanitize_gio_environment())
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SETUP_FAILED;
   if (!list_profiles_requested &&
-      (!awg_helper_storage_make_config_filename(name,
-                                                 config_name,
-                                                 sizeof(config_name)) ||
-       !awg_helper_storage_make_runtime_config_path(name,
-                                                     snapshot_path,
-                                                     sizeof(snapshot_path))))
+      (!awg_helper_storage_make_config_filename(name, config_name,
+                                                sizeof(config_name)) ||
+       !awg_helper_storage_make_runtime_config_path(name, snapshot_path,
+                                                    sizeof(snapshot_path))))
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVALID_NAME;
 
   if (strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_IMPORT) == 0 ||
@@ -117,42 +111,33 @@ main(int argc, char **argv)
   storage = awg_helper_storage_open_runtime(deadlines.forward_at);
   if (storage == NULL) {
     result = awg_helper_phase_failure_or(
-      deadlines.forward_at, NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED);
+        deadlines.forward_at,
+        NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED);
     goto out;
   }
   if (strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_DOWN) == 0) {
     tunnel = awg_helper_tunnel_new(storage);
-    result = awg_helper_tunnel_down(tunnel,
-                                    name,
-                                    config_name,
-                                    snapshot_path,
+    result = awg_helper_tunnel_down(tunnel, name, config_name, snapshot_path,
                                     &deadlines);
     goto out;
   }
   if (!awg_helper_storage_open_profiles(storage)) {
     result = awg_helper_phase_failure_or(
-      deadlines.forward_at, NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED);
+        deadlines.forward_at,
+        NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED);
     goto out;
   }
   profiles = awg_helper_profiles_new(storage);
   if (list_profiles_requested) {
     result = awg_helper_profiles_list(profiles, deadlines.forward_at);
-  } else if (strcmp(command,
-                    NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_IMPORT) == 0) {
-    result = awg_helper_profiles_import(profiles,
-                                        name,
-                                        config_name,
-                                        input,
+  } else if (strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_IMPORT) == 0) {
+    result = awg_helper_profiles_import(profiles, name, config_name, input,
                                         deadlines.forward_at);
-  } else if (strcmp(command,
-                    NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_REPLACE) == 0) {
-    result = awg_helper_profiles_replace(profiles,
-                                         name,
-                                         config_name,
-                                         input,
+  } else if (strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_REPLACE) ==
+             0) {
+    result = awg_helper_profiles_replace(profiles, name, config_name, input,
                                          deadlines.forward_at);
-  } else if (strcmp(command,
-                    NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_UP) == 0) {
+  } else if (strcmp(command, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_UP) == 0) {
     result = awg_helper_switch_up(storage, profiles, name, &deadlines);
   } else {
     result = awg_helper_remove(storage, profiles, name, &deadlines);
@@ -166,8 +151,8 @@ out:
   if (!network_sidebar_amneziawg_process_is_committed() &&
       (result == NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SUCCESS ||
        result == NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVENTORY_PARTIAL)) {
-    NetworkSidebarAmneziaWGHelperExit stop = awg_helper_phase_stop_status(
-      deadlines.forward_at);
+    NetworkSidebarAmneziaWGHelperExit stop =
+        awg_helper_phase_stop_status(deadlines.forward_at);
 
     if (stop != NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SUCCESS)
       result = stop;

@@ -1,0 +1,3 @@
+# Only application C sources and headers; exclude build and packaging output.
+src/**/*.c
+src/**/*.h

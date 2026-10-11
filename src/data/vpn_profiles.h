@@ -24,7 +24,8 @@ typedef enum {
 } NetworkSidebarVpnActivationReason;
 
 /* Records belong to the snapshot, which owns all strings and object references.
- * Consumers retaining connections beyond the snapshot lifetime must ref them. */
+ * Consumers retaining connections beyond the snapshot lifetime must ref them.
+ */
 typedef struct {
   NMRemoteConnection *connection;
   NMActiveConnection *active;
@@ -50,7 +51,8 @@ typedef struct {
 NetworkSidebarVpnProfiles *network_sidebar_vpn_profiles_load(NMClient *client);
 void network_sidebar_vpn_profiles_free(NetworkSidebarVpnProfiles *profiles);
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(NetworkSidebarVpnProfiles, network_sidebar_vpn_profiles_free)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(NetworkSidebarVpnProfiles,
+                              network_sidebar_vpn_profiles_free)
 
 G_END_DECLS
 

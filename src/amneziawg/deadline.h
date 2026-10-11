@@ -16,16 +16,14 @@ typedef struct {
 } NetworkSidebarAmneziaWGDeadlines;
 
 gboolean network_sidebar_amneziawg_deadlines_init(
-  const char *operation,
-  gint64 start_msec,
-  NetworkSidebarAmneziaWGDeadlines *deadlines);
+    const char *operation, gint64 start_msec,
+    NetworkSidebarAmneziaWGDeadlines *deadlines);
 gint64 network_sidebar_amneziawg_deadline_cap(gint64 now_msec,
-                                               gint64 outer_deadline_msec,
-                                               guint local_budget_msec);
-gint network_sidebar_amneziawg_deadline_remaining_msec(
-  gint64 now_msec,
-  gint64 deadline_msec,
-  guint maximum_msec);
+                                              gint64 outer_deadline_msec,
+                                              guint local_budget_msec);
+gint network_sidebar_amneziawg_deadline_remaining_msec(gint64 now_msec,
+                                                       gint64 deadline_msec,
+                                                       guint maximum_msec);
 guint network_sidebar_amneziawg_service_timeout_msec(const char *operation);
 guint network_sidebar_amneziawg_client_timeout_msec(const char *operation);
 

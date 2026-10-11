@@ -70,52 +70,41 @@ typedef struct {
  * An availability_probe is side-effect-free: it must not reserve or enqueue
  * an interaction. */
 typedef gboolean (*NetworkSidebarAwgUiEventCallback)(
-  const NetworkSidebarAwgUiEvent *event,
-  gpointer user_data);
+    const NetworkSidebarAwgUiEvent *event, gpointer user_data);
 
 void network_sidebar_awg_controller_set_ui_event_callback(
-  NetworkSidebarAwgController *controller,
-  NetworkSidebarAwgUiEventCallback callback,
-  gpointer user_data);
+    NetworkSidebarAwgController *controller,
+    NetworkSidebarAwgUiEventCallback callback, gpointer user_data);
 
 void network_sidebar_awg_controller_import(
-  NetworkSidebarAwgController *controller);
+    NetworkSidebarAwgController *controller);
 /* Cancels selection/loading state, never an import sent to the service. */
 void network_sidebar_awg_controller_cancel_import(
-  NetworkSidebarAwgController *controller);
+    NetworkSidebarAwgController *controller);
 void network_sidebar_awg_controller_set_active(
-  NetworkSidebarAwgController *controller,
-  const char *name,
-  gboolean active);
+    NetworkSidebarAwgController *controller, const char *name, gboolean active);
 void network_sidebar_awg_controller_confirm_delete(
-  NetworkSidebarAwgController *controller,
-  const char *name);
+    NetworkSidebarAwgController *controller, const char *name);
 
 gboolean network_sidebar_awg_controller_import_file_selected(
-  NetworkSidebarAwgController *controller,
-  guint64 activity_id,
-  const char *basename);
+    NetworkSidebarAwgController *controller, guint64 activity_id,
+    const char *basename);
 void network_sidebar_awg_controller_import_selection_cancelled(
-  NetworkSidebarAwgController *controller,
-  guint64 activity_id);
+    NetworkSidebarAwgController *controller, guint64 activity_id);
 void network_sidebar_awg_controller_import_loaded(
-  NetworkSidebarAwgController *controller,
-  guint64 activity_id,
-  GBytes *config);
+    NetworkSidebarAwgController *controller, guint64 activity_id,
+    GBytes *config);
 void network_sidebar_awg_controller_import_failed(
-  NetworkSidebarAwgController *controller,
-  guint64 activity_id,
-  NetworkSidebarAwgImportError error);
+    NetworkSidebarAwgController *controller, guint64 activity_id,
+    NetworkSidebarAwgImportError error);
 /* Read-only: TRUE only for a current, authorized confirmation token. */
 gboolean network_sidebar_awg_controller_confirmation_is_pending(
-  NetworkSidebarAwgController *controller,
-  NetworkSidebarAwgUiEventType confirmation,
-  guint64 activity_id);
+    NetworkSidebarAwgController *controller,
+    NetworkSidebarAwgUiEventType confirmation, guint64 activity_id);
 void network_sidebar_awg_controller_confirmation_response(
-  NetworkSidebarAwgController *controller,
-  NetworkSidebarAwgUiEventType confirmation,
-  guint64 activity_id,
-  gboolean confirmed);
+    NetworkSidebarAwgController *controller,
+    NetworkSidebarAwgUiEventType confirmation, guint64 activity_id,
+    gboolean confirmed);
 
 G_END_DECLS
 

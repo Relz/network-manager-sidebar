@@ -3,9 +3,8 @@
 #include "data/labels.h"
 #include "sections/helpers.h"
 
-static void
-add_info_row(AdwPreferencesGroup *group, const char *label, const char *value)
-{
+static void add_info_row(AdwPreferencesGroup *group, const char *label,
+                         const char *value) {
   GtkWidget *row;
 
   if (value == NULL || *value == '\0')
@@ -16,9 +15,7 @@ add_info_row(AdwPreferencesGroup *group, const char *label, const char *value)
   adw_preferences_group_add(group, row);
 }
 
-static char *
-active_title(NMActiveConnection *active, NMDevice *device)
-{
+static char *active_title(NMActiveConnection *active, NMDevice *device) {
   const char *id = active != NULL ? nm_active_connection_get_id(active) : NULL;
   const char *iface = device != NULL ? nm_device_get_iface(device) : NULL;
   const char *ip_iface = device != NULL ? nm_device_get_ip_iface(device) : NULL;
@@ -29,12 +26,11 @@ active_title(NMActiveConnection *active, NMDevice *device)
     return network_sidebar_display_text(iface, "Unknown interface");
   if (ip_iface != NULL && *ip_iface != '\0')
     return network_sidebar_display_text(ip_iface, "Unknown interface");
-  return network_sidebar_connection_type_label(active != NULL ? nm_active_connection_get_connection_type(active) : NULL);
+  return network_sidebar_connection_type_label(
+      active != NULL ? nm_active_connection_get_connection_type(active) : NULL);
 }
 
-static char *
-addresses_label(NMIPConfig *config)
-{
+static char *addresses_label(NMIPConfig *config) {
   GPtrArray *addresses;
   g_autoptr(GString) value = g_string_new(NULL);
 
@@ -48,21 +44,22 @@ addresses_label(NMIPConfig *config)
       continue;
     if (value->len > 0)
       g_string_append(value, ", ");
-    g_string_append_printf(value, "%s/%u", address_text, nm_ip_address_get_prefix(address));
+    g_string_append_printf(value, "%s/%u", address_text,
+                           nm_ip_address_get_prefix(address));
   }
   return value->len > 0 ? g_string_free(g_steal_pointer(&value), FALSE) : NULL;
 }
 
-static char *
-route_text(NMIPRoute *route)
-{
+static char *route_text(NMIPRoute *route) {
   const char *dest = nm_ip_route_get_dest(route);
   guint prefix = nm_ip_route_get_prefix(route);
   const char *next_hop = nm_ip_route_get_next_hop(route);
   gint64 metric = nm_ip_route_get_metric(route);
   g_autoptr(GString) value = g_string_new(NULL);
 
-  if (prefix == 0 && (dest == NULL || *dest == '\0' || g_strcmp0(dest, "0.0.0.0") == 0 || g_strcmp0(dest, "::") == 0))
+  if (prefix == 0 &&
+      (dest == NULL || *dest == '\0' || g_strcmp0(dest, "0.0.0.0") == 0 ||
+       g_strcmp0(dest, "::") == 0))
     g_string_append(value, "default");
   else if (dest != NULL && *dest != '\0')
     g_string_append_printf(value, "%s/%u", dest, prefix);
@@ -76,9 +73,7 @@ route_text(NMIPRoute *route)
   return g_string_free(g_steal_pointer(&value), FALSE);
 }
 
-static char *
-routes_label(NMIPConfig *config)
-{
+static char *routes_label(NMIPConfig *config) {
   GPtrArray *routes;
   g_autoptr(GString) value = g_string_new(NULL);
 
@@ -97,17 +92,14 @@ routes_label(NMIPConfig *config)
   return value->len > 0 ? g_string_free(g_steal_pointer(&value), FALSE) : NULL;
 }
 
-static char *
-strv_join_label(const char *const *values)
-{
+static char *strv_join_label(const char *const *values) {
   if (values == NULL || values[0] == NULL)
     return NULL;
-  return g_strjoinv(", ", (char **) values);
+  return g_strjoinv(", ", (char **)values);
 }
 
-static gboolean
-add_ip_rows(AdwPreferencesGroup *group, const char *prefix, NMIPConfig *config)
-{
+static gboolean add_ip_rows(AdwPreferencesGroup *group, const char *prefix,
+                            NMIPConfig *config) {
   g_autofree char *addresses = addresses_label(config);
   g_autofree char *routes = routes_label(config);
   g_autofree char *address_label = g_strdup_printf("%s address", prefix);
@@ -116,9 +108,14 @@ add_ip_rows(AdwPreferencesGroup *group, const char *prefix, NMIPConfig *config)
   g_autofree char *dns_label = g_strdup_printf("%s DNS", prefix);
   g_autofree char *domains_label = g_strdup_printf("%s domains", prefix);
   g_autofree char *search_label = g_strdup_printf("%s search domains", prefix);
-  g_autofree char *dns = config != NULL ? strv_join_label(nm_ip_config_get_nameservers(config)) : NULL;
-  g_autofree char *domains = config != NULL ? strv_join_label(nm_ip_config_get_domains(config)) : NULL;
-  g_autofree char *searches = config != NULL ? strv_join_label(nm_ip_config_get_searches(config)) : NULL;
+  g_autofree char *dns =
+      config != NULL ? strv_join_label(nm_ip_config_get_nameservers(config))
+                     : NULL;
+  g_autofree char *domains =
+      config != NULL ? strv_join_label(nm_ip_config_get_domains(config)) : NULL;
+  g_autofree char *searches =
+      config != NULL ? strv_join_label(nm_ip_config_get_searches(config))
+                     : NULL;
   gboolean added = FALSE;
 
   if (config == NULL)
@@ -127,7 +124,8 @@ add_ip_rows(AdwPreferencesGroup *group, const char *prefix, NMIPConfig *config)
     add_info_row(group, address_label, addresses);
     added = TRUE;
   }
-  if (nm_ip_config_get_gateway(config) != NULL && *nm_ip_config_get_gateway(config) != '\0') {
+  if (nm_ip_config_get_gateway(config) != NULL &&
+      *nm_ip_config_get_gateway(config) != '\0') {
     add_info_row(group, gateway_label, nm_ip_config_get_gateway(config));
     added = TRUE;
   }
@@ -150,9 +148,10 @@ add_ip_rows(AdwPreferencesGroup *group, const char *prefix, NMIPConfig *config)
   return added;
 }
 
-static gboolean
-add_ip_rows_with_fallback(AdwPreferencesGroup *group, const char *prefix, NMIPConfig *primary, NMIPConfig *fallback)
-{
+static gboolean add_ip_rows_with_fallback(AdwPreferencesGroup *group,
+                                          const char *prefix,
+                                          NMIPConfig *primary,
+                                          NMIPConfig *fallback) {
   if (add_ip_rows(group, prefix, primary))
     return TRUE;
   if (fallback != NULL && fallback != primary)
@@ -160,34 +159,43 @@ add_ip_rows_with_fallback(AdwPreferencesGroup *group, const char *prefix, NMIPCo
   return FALSE;
 }
 
-static gboolean
-add_active_ip_rows(AdwPreferencesGroup *group, NMActiveConnection *active, gboolean include_ip_iface)
-{
+static gboolean add_active_ip_rows(AdwPreferencesGroup *group,
+                                   NMActiveConnection *active,
+                                   gboolean include_ip_iface) {
   gboolean added = FALSE;
 
-  if (include_ip_iface && g_object_class_find_property(G_OBJECT_GET_CLASS(active), "ip-iface") != NULL) {
+  if (include_ip_iface && g_object_class_find_property(
+                              G_OBJECT_GET_CLASS(active), "ip-iface") != NULL) {
     g_autofree char *ip_iface = NULL;
     g_object_get(active, "ip-iface", &ip_iface, NULL);
     add_info_row(group, "IP interface", ip_iface);
     if (ip_iface != NULL && *ip_iface != '\0')
       added = TRUE;
   }
-  added |= add_ip_rows(group, "IPv4", nm_active_connection_get_ip4_config(active));
-  added |= add_ip_rows(group, "IPv6", nm_active_connection_get_ip6_config(active));
+  added |=
+      add_ip_rows(group, "IPv4", nm_active_connection_get_ip4_config(active));
+  added |=
+      add_ip_rows(group, "IPv6", nm_active_connection_get_ip6_config(active));
   return added;
 }
 
-static void
-add_device_rows(AdwPreferencesGroup *group, NMActiveConnection *active, NMDevice *device, gboolean include_active_ip_config)
-{
+static void add_device_rows(AdwPreferencesGroup *group,
+                            NMActiveConnection *active, NMDevice *device,
+                            gboolean include_active_ip_config) {
   const char *iface = nm_device_get_iface(device);
   const char *ip_iface = nm_device_get_ip_iface(device);
   const char *type_description = nm_device_get_type_description(device);
-  g_autofree char *fallback_type = network_sidebar_connection_type_label(nm_active_connection_get_connection_type(active));
-  g_autofree char *state = network_sidebar_device_state_label(nm_device_get_state(device));
+  g_autofree char *fallback_type = network_sidebar_connection_type_label(
+      nm_active_connection_get_connection_type(active));
+  g_autofree char *state =
+      network_sidebar_device_state_label(nm_device_get_state(device));
 
-  add_info_row(group, "Interface", iface != NULL && *iface != '\0' ? iface : "Unknown");
-  add_info_row(group, "Device type", type_description != NULL && *type_description != '\0' ? type_description : fallback_type);
+  add_info_row(group, "Interface",
+               iface != NULL && *iface != '\0' ? iface : "Unknown");
+  add_info_row(group, "Device type",
+               type_description != NULL && *type_description != '\0'
+                   ? type_description
+                   : fallback_type);
   add_info_row(group, "Device state", state);
   if (ip_iface != NULL && *ip_iface != '\0' && g_strcmp0(ip_iface, iface) != 0)
     add_info_row(group, "IP interface", ip_iface);
@@ -203,15 +211,22 @@ add_device_rows(AdwPreferencesGroup *group, NMActiveConnection *active, NMDevice
   }
 
   if (NM_IS_DEVICE_WIFI(device)) {
-    NMAccessPoint *ap = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(device));
+    NMAccessPoint *ap =
+        nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(device));
     if (ap != NULL) {
       guint32 frequency_mhz = nm_access_point_get_frequency(ap);
       g_autofree char *ssid = network_sidebar_ap_ssid_text(ap);
-      g_autofree char *signal = g_strdup_printf("%u%%", nm_access_point_get_strength(ap));
+      g_autofree char *signal =
+          g_strdup_printf("%u%%", nm_access_point_get_strength(ap));
       g_autofree char *security = network_sidebar_ap_security_label(ap);
-      g_autofree char *frequency = network_sidebar_frequency_label(frequency_mhz);
-      g_autofree char *raw_frequency = frequency_mhz != 0 ? g_strdup_printf("%u MHz", frequency_mhz) : NULL;
-      g_autofree char *frequency_detail = frequency_mhz != 0 && g_strcmp0(frequency, raw_frequency) != 0 ? g_strdup_printf("%s (%u MHz)", frequency, frequency_mhz) : g_strdup(frequency);
+      g_autofree char *frequency =
+          network_sidebar_frequency_label(frequency_mhz);
+      g_autofree char *raw_frequency =
+          frequency_mhz != 0 ? g_strdup_printf("%u MHz", frequency_mhz) : NULL;
+      g_autofree char *frequency_detail =
+          frequency_mhz != 0 && g_strcmp0(frequency, raw_frequency) != 0
+              ? g_strdup_printf("%s (%u MHz)", frequency, frequency_mhz)
+              : g_strdup(frequency);
       add_info_row(group, "SSID", ssid);
       add_info_row(group, "Signal", signal);
       add_info_row(group, "Security", security);
@@ -224,26 +239,36 @@ add_device_rows(AdwPreferencesGroup *group, NMActiveConnection *active, NMDevice
     if (include_active_ip_config)
       add_active_ip_rows(group, active, FALSE);
   } else {
-    NMIPConfig *fallback_ip4 = include_active_ip_config ? nm_active_connection_get_ip4_config(active) : NULL;
-    NMIPConfig *fallback_ip6 = include_active_ip_config ? nm_active_connection_get_ip6_config(active) : NULL;
-    add_ip_rows_with_fallback(group, "IPv4", nm_device_get_ip4_config(device), fallback_ip4);
-    add_ip_rows_with_fallback(group, "IPv6", nm_device_get_ip6_config(device), fallback_ip6);
+    NMIPConfig *fallback_ip4 = include_active_ip_config
+                                   ? nm_active_connection_get_ip4_config(active)
+                                   : NULL;
+    NMIPConfig *fallback_ip6 = include_active_ip_config
+                                   ? nm_active_connection_get_ip6_config(active)
+                                   : NULL;
+    add_ip_rows_with_fallback(group, "IPv4", nm_device_get_ip4_config(device),
+                              fallback_ip4);
+    add_ip_rows_with_fallback(group, "IPv6", nm_device_get_ip6_config(device),
+                              fallback_ip6);
   }
 }
 
-static void
-add_connection_rows(AdwPreferencesGroup *group, NMActiveConnection *active, NMDevice *device, gboolean include_active_ip_config)
-{
-  g_autofree char *connection = network_sidebar_active_connection_name(active, "Unknown");
-  g_autofree char *type = network_sidebar_connection_type_label(nm_active_connection_get_connection_type(active));
-  g_autofree char *state = network_sidebar_active_state_label(nm_active_connection_get_state(active));
+static void add_connection_rows(AdwPreferencesGroup *group,
+                                NMActiveConnection *active, NMDevice *device,
+                                gboolean include_active_ip_config) {
+  g_autofree char *connection =
+      network_sidebar_active_connection_name(active, "Unknown");
+  g_autofree char *type = network_sidebar_connection_type_label(
+      nm_active_connection_get_connection_type(active));
+  g_autofree char *state = network_sidebar_active_state_label(
+      nm_active_connection_get_state(active));
   g_autoptr(GString) default_routes = g_string_new(NULL);
 
   add_info_row(group, "Connection", connection);
   add_info_row(group, "Type", type);
   add_info_row(group, "State", state);
   if (nm_active_connection_get_vpn(active) && NM_IS_VPN_CONNECTION(active)) {
-    g_autofree char *vpn_state = network_sidebar_vpn_state_label(nm_vpn_connection_get_vpn_state(NM_VPN_CONNECTION(active)));
+    g_autofree char *vpn_state = network_sidebar_vpn_state_label(
+        nm_vpn_connection_get_vpn_state(NM_VPN_CONNECTION(active)));
     add_info_row(group, "VPN state", vpn_state);
   }
   add_info_row(group, "UUID", nm_active_connection_get_uuid(active));
@@ -262,31 +287,34 @@ add_connection_rows(AdwPreferencesGroup *group, NMActiveConnection *active, NMDe
     add_active_ip_rows(group, active, TRUE);
 }
 
-void
-network_sidebar_add_connection_info_content(GtkBox *content, NMClient *client)
-{
-  const GPtrArray *active_connections = nm_client_get_active_connections(client);
+void network_sidebar_add_connection_info_content(GtkBox *content,
+                                                 NMClient *client) {
+  const GPtrArray *active_connections =
+      nm_client_get_active_connections(client);
   gboolean added = FALSE;
 
-  for (guint i = 0; active_connections != NULL && i < active_connections->len; i++) {
-    NMActiveConnection *active = g_ptr_array_index((GPtrArray *) active_connections, i);
+  for (guint i = 0; active_connections != NULL && i < active_connections->len;
+       i++) {
+    NMActiveConnection *active =
+        g_ptr_array_index((GPtrArray *)active_connections, i);
     const GPtrArray *raw_devices = nm_active_connection_get_devices(active);
     g_autoptr(GPtrArray) devices = g_ptr_array_new();
     gboolean devices_available = raw_devices != NULL;
     gboolean has_multiple_devices;
 
-    if (g_strcmp0(nm_active_connection_get_connection_type(active), "loopback") == 0)
+    if (g_strcmp0(nm_active_connection_get_connection_type(active),
+                  "loopback") == 0)
       continue;
 
     for (guint j = 0; raw_devices != NULL && j < raw_devices->len; j++) {
-      NMDevice *device = g_ptr_array_index((GPtrArray *) raw_devices, j);
+      NMDevice *device = g_ptr_array_index((GPtrArray *)raw_devices, j);
       if (g_strcmp0(nm_device_get_iface(device), "lo") != 0)
         g_ptr_array_add(devices, device);
     }
 
-    if (nm_active_connection_get_state(active) == NM_ACTIVE_CONNECTION_STATE_ACTIVATED &&
-        devices_available &&
-        devices->len == 0 &&
+    if (nm_active_connection_get_state(active) ==
+            NM_ACTIVE_CONNECTION_STATE_ACTIVATED &&
+        devices_available && devices->len == 0 &&
         !nm_active_connection_get_vpn(active) &&
         nm_active_connection_get_ip4_config(active) == NULL &&
         nm_active_connection_get_ip6_config(active) == NULL)
@@ -306,20 +334,23 @@ network_sidebar_add_connection_info_content(GtkBox *content, NMClient *client)
           if (device_label == NULL || *device_label == '\0')
             device_label = nm_device_get_type_description(device);
           if (device_label != NULL && *device_label != '\0') {
-            g_autofree char *with_device = g_strdup_printf("%s (%s)", title, device_label);
+            g_autofree char *with_device =
+                g_strdup_printf("%s (%s)", title, device_label);
             g_free(title);
             title = g_steal_pointer(&with_device);
           }
         }
 
         group = network_sidebar_section_group(title);
-        add_connection_rows(ADW_PREFERENCES_GROUP(group), active, device, !has_multiple_devices);
+        add_connection_rows(ADW_PREFERENCES_GROUP(group), active, device,
+                            !has_multiple_devices);
         gtk_box_append(content, group);
         added = TRUE;
       }
       if (has_multiple_devices) {
         g_autofree char *title = active_title(active, NULL);
-        g_autofree char *ip_title = g_strdup_printf("%s (IP configuration)", title);
+        g_autofree char *ip_title =
+            g_strdup_printf("%s (IP configuration)", title);
         GtkWidget *group = network_sidebar_section_group(ip_title);
         if (add_active_ip_rows(ADW_PREFERENCES_GROUP(group), active, TRUE)) {
           gtk_box_append(content, group);
@@ -336,7 +367,8 @@ network_sidebar_add_connection_info_content(GtkBox *content, NMClient *client)
       else if (nm_active_connection_get_vpn(active))
         title = g_strdup("VPN");
       else
-        title = network_sidebar_connection_type_label(nm_active_connection_get_connection_type(active));
+        title = network_sidebar_connection_type_label(
+            nm_active_connection_get_connection_type(active));
 
       group = network_sidebar_section_group(title);
       add_connection_rows(ADW_PREFERENCES_GROUP(group), active, NULL, TRUE);
@@ -347,7 +379,10 @@ network_sidebar_add_connection_info_content(GtkBox *content, NMClient *client)
 
   if (!added) {
     GtkWidget *group = network_sidebar_section_group("Connection Information");
-    network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "No connection details available", "NetworkManager has no connection details to show", "dialog-information-symbolic");
+    network_sidebar_add_notice(
+        ADW_PREFERENCES_GROUP(group), "No connection details available",
+        "NetworkManager has no connection details to show",
+        "dialog-information-symbolic");
     gtk_box_append(content, group);
   }
 }

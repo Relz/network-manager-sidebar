@@ -16,14 +16,15 @@ typedef enum {
 } NetworkSidebarIPCCommandStatus;
 
 char *network_sidebar_normalize_command(const char *command);
-char *network_sidebar_encode_command(const char *command, const char *target_output_name);
+char *network_sidebar_encode_command(const char *command,
+                                     const char *target_output_name);
 gboolean network_sidebar_parse_command_line(const char *command_line,
                                             char **command,
                                             char **target_output_name);
 char *network_sidebar_success_response(const char *command);
-NetworkSidebarIPCCommandStatus network_sidebar_send_command(const char *command,
-                                                            const char *target_output_name,
-                                                            GError **error);
+NetworkSidebarIPCCommandStatus
+network_sidebar_send_command(const char *command,
+                             const char *target_output_name, GError **error);
 
 G_END_DECLS
 

@@ -27,9 +27,7 @@ typedef struct {
   gboolean show_device_iface;
 } WifiEntry;
 
-static void
-wifi_row_action_free(WifiRowAction *data)
-{
+static void wifi_row_action_free(WifiRowAction *data) {
   network_sidebar_actions_unref(data->actions);
   g_clear_object(&data->device);
   g_clear_object(&data->ap);
@@ -38,16 +36,12 @@ wifi_row_action_free(WifiRowAction *data)
   g_free(data);
 }
 
-static void
-wifi_row_action_closure_notify(gpointer data, GClosure *closure)
-{
-  (void) closure;
+static void wifi_row_action_closure_notify(gpointer data, GClosure *closure) {
+  (void)closure;
   wifi_row_action_free(data);
 }
 
-static void
-wifi_member_free(WifiMember *member)
-{
+static void wifi_member_free(WifiMember *member) {
   if (member == NULL)
     return;
   g_clear_object(&member->device);
@@ -56,9 +50,7 @@ wifi_member_free(WifiMember *member)
   g_free(member);
 }
 
-static void
-wifi_entry_free(WifiEntry *entry)
-{
+static void wifi_entry_free(WifiEntry *entry) {
   if (entry == NULL)
     return;
   g_clear_pointer(&entry->members, g_ptr_array_unref);
@@ -66,9 +58,7 @@ wifi_entry_free(WifiEntry *entry)
   g_free(entry);
 }
 
-static gboolean
-ssid_bytes_equal(GBytes *left, GBytes *right)
-{
+static gboolean ssid_bytes_equal(GBytes *left, GBytes *right) {
   const guint8 *left_bytes;
   const guint8 *right_bytes;
   gsize left_len = 0;
@@ -89,9 +79,7 @@ ssid_bytes_equal(GBytes *left, GBytes *right)
   return memcmp(left_bytes, right_bytes, left_len) == 0;
 }
 
-static gboolean
-ap_has_ssid(NMAccessPoint *ap)
-{
+static gboolean ap_has_ssid(NMAccessPoint *ap) {
   GBytes *ssid = nm_access_point_get_ssid(ap);
   gsize length = 0;
 
@@ -101,15 +89,11 @@ ap_has_ssid(NMAccessPoint *ap)
   return length > 0;
 }
 
-static NM80211ApFlags
-ap_security_flags(NMAccessPoint *ap)
-{
+static NM80211ApFlags ap_security_flags(NMAccessPoint *ap) {
   return nm_access_point_get_flags(ap) & NM_802_11_AP_FLAGS_PRIVACY;
 }
 
-static char *
-ap_bssid_or_path(NMAccessPoint *ap)
-{
+static char *ap_bssid_or_path(NMAccessPoint *ap) {
   const char *bssid = nm_access_point_get_bssid(ap);
   const char *path;
 
@@ -119,9 +103,7 @@ ap_bssid_or_path(NMAccessPoint *ap)
   return g_strdup(path != NULL ? path : "");
 }
 
-static char *
-device_identity(NMDeviceWifi *device)
-{
+static char *device_identity(NMDeviceWifi *device) {
   const char *path = nm_object_get_path(NM_OBJECT(device));
   const char *iface;
 
@@ -131,9 +113,9 @@ device_identity(NMDeviceWifi *device)
   return g_strdup(iface != NULL ? iface : "unknown");
 }
 
-static gboolean
-same_hidden_ap_identity(WifiMember *member, NMDeviceWifi *device, NMAccessPoint *ap)
-{
+static gboolean same_hidden_ap_identity(WifiMember *member,
+                                        NMDeviceWifi *device,
+                                        NMAccessPoint *ap) {
   g_autofree char *member_device = device_identity(member->device);
   g_autofree char *candidate_device = device_identity(device);
   g_autofree char *entry_bssid = ap_bssid_or_path(member->ap);
@@ -141,39 +123,43 @@ same_hidden_ap_identity(WifiMember *member, NMDeviceWifi *device, NMAccessPoint 
 
   return g_strcmp0(member_device, candidate_device) == 0 &&
          g_strcmp0(entry_bssid, candidate_bssid) == 0 &&
-         nm_access_point_get_frequency(member->ap) == nm_access_point_get_frequency(ap) &&
+         nm_access_point_get_frequency(member->ap) ==
+             nm_access_point_get_frequency(ap) &&
          nm_access_point_get_mode(member->ap) == nm_access_point_get_mode(ap) &&
-         nm_access_point_get_flags(member->ap) == nm_access_point_get_flags(ap) &&
-         nm_access_point_get_wpa_flags(member->ap) == nm_access_point_get_wpa_flags(ap) &&
-         nm_access_point_get_rsn_flags(member->ap) == nm_access_point_get_rsn_flags(ap);
+         nm_access_point_get_flags(member->ap) ==
+             nm_access_point_get_flags(ap) &&
+         nm_access_point_get_wpa_flags(member->ap) ==
+             nm_access_point_get_wpa_flags(ap) &&
+         nm_access_point_get_rsn_flags(member->ap) ==
+             nm_access_point_get_rsn_flags(ap);
 }
 
-static gboolean
-same_network_identity(WifiEntry *entry, NMDeviceWifi *device, NMAccessPoint *ap)
-{
+static gboolean same_network_identity(WifiEntry *entry, NMDeviceWifi *device,
+                                      NMAccessPoint *ap) {
   WifiMember *first = g_ptr_array_index(entry->members, 0);
   gboolean first_has_ssid = ap_has_ssid(first->ap);
   gboolean candidate_has_ssid = ap_has_ssid(ap);
 
   if (!first_has_ssid || !candidate_has_ssid)
-    return !first_has_ssid && !candidate_has_ssid && same_hidden_ap_identity(first, device, ap);
+    return !first_has_ssid && !candidate_has_ssid &&
+           same_hidden_ap_identity(first, device, ap);
 
-  return ssid_bytes_equal(nm_access_point_get_ssid(first->ap), nm_access_point_get_ssid(ap)) &&
+  return ssid_bytes_equal(nm_access_point_get_ssid(first->ap),
+                          nm_access_point_get_ssid(ap)) &&
          nm_access_point_get_mode(first->ap) == nm_access_point_get_mode(ap) &&
          ap_security_flags(first->ap) == ap_security_flags(ap) &&
-         nm_access_point_get_wpa_flags(first->ap) == nm_access_point_get_wpa_flags(ap) &&
-         nm_access_point_get_rsn_flags(first->ap) == nm_access_point_get_rsn_flags(ap);
+         nm_access_point_get_wpa_flags(first->ap) ==
+             nm_access_point_get_wpa_flags(ap) &&
+         nm_access_point_get_rsn_flags(first->ap) ==
+             nm_access_point_get_rsn_flags(ap);
 }
 
-static gboolean
-row_state_preferred(NetworkSidebarRowState state)
-{
-  return state == NETWORK_SIDEBAR_ROW_STATE_ACTIVE || state == NETWORK_SIDEBAR_ROW_STATE_CONNECTING;
+static gboolean row_state_preferred(NetworkSidebarRowState state) {
+  return state == NETWORK_SIDEBAR_ROW_STATE_ACTIVE ||
+         state == NETWORK_SIDEBAR_ROW_STATE_CONNECTING;
 }
 
-static int
-row_state_rank(NetworkSidebarRowState state)
-{
+static int row_state_rank(NetworkSidebarRowState state) {
   if (state == NETWORK_SIDEBAR_ROW_STATE_ACTIVE)
     return 0;
   if (state == NETWORK_SIDEBAR_ROW_STATE_CONNECTING)
@@ -181,24 +167,24 @@ row_state_rank(NetworkSidebarRowState state)
   return 2;
 }
 
-static gboolean
-ap_matches_active(NMDeviceWifi *device, NMAccessPoint *ap, NMActiveConnection *active)
-{
+static gboolean ap_matches_active(NMDeviceWifi *device, NMAccessPoint *ap,
+                                  NMActiveConnection *active) {
   NMAccessPoint *active_ap = nm_device_wifi_get_active_access_point(device);
   const char *ap_path = nm_object_get_path(NM_OBJECT(ap));
-  const char *specific_path = active != NULL ? nm_active_connection_get_specific_object_path(active) : NULL;
+  const char *specific_path =
+      active != NULL ? nm_active_connection_get_specific_object_path(active)
+                     : NULL;
 
-  if (active_ap != NULL && g_strcmp0(nm_object_get_path(NM_OBJECT(active_ap)), ap_path) == 0)
+  if (active_ap != NULL &&
+      g_strcmp0(nm_object_get_path(NM_OBJECT(active_ap)), ap_path) == 0)
     return TRUE;
-  return specific_path != NULL && g_strcmp0(specific_path, "/") != 0 && g_strcmp0(specific_path, ap_path) == 0;
+  return specific_path != NULL && g_strcmp0(specific_path, "/") != 0 &&
+         g_strcmp0(specific_path, ap_path) == 0;
 }
 
-static WifiMember *
-wifi_member_new(NMDeviceWifi *device,
-                NMAccessPoint *ap,
-                NMActiveConnection *active,
-                NetworkSidebarRowState row_state)
-{
+static WifiMember *wifi_member_new(NMDeviceWifi *device, NMAccessPoint *ap,
+                                   NMActiveConnection *active,
+                                   NetworkSidebarRowState row_state) {
   WifiMember *member = g_new0(WifiMember, 1);
 
   member->device = g_object_ref(device);
@@ -208,33 +194,38 @@ wifi_member_new(NMDeviceWifi *device,
   return member;
 }
 
-static gboolean
-wifi_member_matches_profile(WifiMember *member, NMRemoteConnection *profile)
-{
+static gboolean wifi_member_matches_profile(WifiMember *member,
+                                            NMRemoteConnection *profile) {
   NMConnection *connection = NM_CONNECTION(profile);
 
   return nm_device_connection_valid(NM_DEVICE(member->device), connection) &&
          nm_access_point_connection_valid(member->ap, connection);
 }
 
-static gboolean
-wifi_member_active_for_profile(WifiMember *member, NMRemoteConnection *profile)
-{
+static gboolean wifi_member_active_for_profile(WifiMember *member,
+                                               NMRemoteConnection *profile) {
   const char *uuid = nm_connection_get_uuid(NM_CONNECTION(profile));
-  const char *active_uuid = member->active != NULL ? nm_active_connection_get_uuid(member->active) : NULL;
+  const char *active_uuid = member->active != NULL
+                                ? nm_active_connection_get_uuid(member->active)
+                                : NULL;
 
-  return uuid != NULL && active_uuid != NULL && g_strcmp0(uuid, active_uuid) == 0;
+  return uuid != NULL && active_uuid != NULL &&
+         g_strcmp0(uuid, active_uuid) == 0;
 }
 
-static gboolean
-wifi_member_preferred(WifiMember *candidate, WifiMember *current, NMRemoteConnection *profile)
-{
+static gboolean wifi_member_preferred(WifiMember *candidate,
+                                      WifiMember *current,
+                                      NMRemoteConnection *profile) {
   int candidate_rank;
   int current_rank;
 
   if (profile != NULL) {
-    candidate_rank = wifi_member_active_for_profile(candidate, profile) ? row_state_rank(candidate->row_state) : 2;
-    current_rank = wifi_member_active_for_profile(current, profile) ? row_state_rank(current->row_state) : 2;
+    candidate_rank = wifi_member_active_for_profile(candidate, profile)
+                         ? row_state_rank(candidate->row_state)
+                         : 2;
+    current_rank = wifi_member_active_for_profile(current, profile)
+                       ? row_state_rank(current->row_state)
+                       : 2;
   } else {
     candidate_rank = row_state_rank(candidate->row_state);
     current_rank = row_state_rank(current->row_state);
@@ -242,19 +233,19 @@ wifi_member_preferred(WifiMember *candidate, WifiMember *current, NMRemoteConnec
 
   if (candidate_rank != current_rank)
     return candidate_rank < current_rank;
-  return nm_access_point_get_strength(candidate->ap) > nm_access_point_get_strength(current->ap);
+  return nm_access_point_get_strength(candidate->ap) >
+         nm_access_point_get_strength(current->ap);
 }
 
 static WifiMember *
-wifi_entry_best_member_for_profile(WifiEntry *entry, NMRemoteConnection *profile)
-{
+wifi_entry_best_member_for_profile(WifiEntry *entry,
+                                   NMRemoteConnection *profile) {
   WifiMember *best = NULL;
 
   for (guint i = 0; i < entry->members->len; i++) {
     WifiMember *member = g_ptr_array_index(entry->members, i);
 
-    if (profile != NULL &&
-        !wifi_member_active_for_profile(member, profile) &&
+    if (profile != NULL && !wifi_member_active_for_profile(member, profile) &&
         !wifi_member_matches_profile(member, profile))
       continue;
     if (best == NULL || wifi_member_preferred(member, best, profile))
@@ -263,15 +254,12 @@ wifi_entry_best_member_for_profile(WifiEntry *entry, NMRemoteConnection *profile
   return best;
 }
 
-static WifiMember *
-wifi_entry_best_member(WifiEntry *entry)
-{
+static WifiMember *wifi_entry_best_member(WifiEntry *entry) {
   return wifi_entry_best_member_for_profile(entry, NULL);
 }
 
-static void
-assign_saved_wifi_connections(GPtrArray *entries, GPtrArray *profiles)
-{
+static void assign_saved_wifi_connections(GPtrArray *entries,
+                                          GPtrArray *profiles) {
   for (guint i = 0; i < entries->len; i++) {
     WifiEntry *entry = g_ptr_array_index(entries, i);
 
@@ -285,41 +273,40 @@ assign_saved_wifi_connections(GPtrArray *entries, GPtrArray *profiles)
   }
 }
 
-static gint
-saved_connection_compare(gconstpointer left, gconstpointer right)
-{
-  NMRemoteConnection *left_connection = *(NMRemoteConnection * const *) left;
-  NMRemoteConnection *right_connection = *(NMRemoteConnection * const *) right;
+static gint saved_connection_compare(gconstpointer left, gconstpointer right) {
+  NMRemoteConnection *left_connection = *(NMRemoteConnection *const *)left;
+  NMRemoteConnection *right_connection = *(NMRemoteConnection *const *)right;
   const char *left_id = nm_connection_get_id(NM_CONNECTION(left_connection));
   const char *right_id = nm_connection_get_id(NM_CONNECTION(right_connection));
-  g_autofree char *left_folded = g_utf8_casefold(left_id != NULL ? left_id : "", -1);
-  g_autofree char *right_folded = g_utf8_casefold(right_id != NULL ? right_id : "", -1);
+  g_autofree char *left_folded =
+      g_utf8_casefold(left_id != NULL ? left_id : "", -1);
+  g_autofree char *right_folded =
+      g_utf8_casefold(right_id != NULL ? right_id : "", -1);
   int id_compare = g_strcmp0(left_folded, right_folded);
 
   if (id_compare != 0)
     return id_compare;
-  return g_strcmp0(nm_connection_get_uuid(NM_CONNECTION(left_connection)), nm_connection_get_uuid(NM_CONNECTION(right_connection)));
+  return g_strcmp0(nm_connection_get_uuid(NM_CONNECTION(left_connection)),
+                   nm_connection_get_uuid(NM_CONNECTION(right_connection)));
 }
 
-static GPtrArray *
-saved_wifi_profiles(NMClient *client)
-{
+static GPtrArray *saved_wifi_profiles(NMClient *client) {
   const GPtrArray *connections = nm_client_get_connections(client);
   GPtrArray *profiles = g_ptr_array_new_with_free_func(g_object_unref);
 
   for (guint i = 0; connections != NULL && i < connections->len; i++) {
-    NMRemoteConnection *connection = g_ptr_array_index((GPtrArray *) connections, i);
+    NMRemoteConnection *connection =
+        g_ptr_array_index((GPtrArray *)connections, i);
 
-    if (g_strcmp0(nm_connection_get_connection_type(NM_CONNECTION(connection)), NM_SETTING_WIRELESS_SETTING_NAME) == 0)
+    if (g_strcmp0(nm_connection_get_connection_type(NM_CONNECTION(connection)),
+                  NM_SETTING_WIRELESS_SETTING_NAME) == 0)
       g_ptr_array_add(profiles, g_object_ref(connection));
   }
   g_ptr_array_sort(profiles, saved_connection_compare);
   return profiles;
 }
 
-static char *
-saved_profile_key(NMRemoteConnection *connection)
-{
+static char *saved_profile_key(NMRemoteConnection *connection) {
   const char *uuid = nm_connection_get_uuid(NM_CONNECTION(connection));
   const char *path;
 
@@ -331,15 +318,17 @@ saved_profile_key(NMRemoteConnection *connection)
   return g_strdup_printf("object:%p", connection);
 }
 
-static NMActiveConnection *
-active_connection_by_uuid(NMClient *client, const char *uuid)
-{
-  const GPtrArray *active_connections = nm_client_get_active_connections(client);
+static NMActiveConnection *active_connection_by_uuid(NMClient *client,
+                                                     const char *uuid) {
+  const GPtrArray *active_connections =
+      nm_client_get_active_connections(client);
 
   if (uuid == NULL)
     return NULL;
-  for (guint i = 0; active_connections != NULL && i < active_connections->len; i++) {
-    NMActiveConnection *active = g_ptr_array_index((GPtrArray *) active_connections, i);
+  for (guint i = 0; active_connections != NULL && i < active_connections->len;
+       i++) {
+    NMActiveConnection *active =
+        g_ptr_array_index((GPtrArray *)active_connections, i);
     if (g_strcmp0(uuid, nm_active_connection_get_uuid(active)) == 0)
       return active;
   }
@@ -347,13 +336,13 @@ active_connection_by_uuid(NMClient *client, const char *uuid)
 }
 
 static NMDeviceWifi *
-compatible_wifi_device_for_profile(NMClient *client, NMRemoteConnection *connection)
-{
+compatible_wifi_device_for_profile(NMClient *client,
+                                   NMRemoteConnection *connection) {
   const GPtrArray *devices = nm_client_get_devices(client);
   NMConnection *nm_connection = NM_CONNECTION(connection);
 
   for (guint i = 0; devices != NULL && i < devices->len; i++) {
-    NMDevice *device = g_ptr_array_index((GPtrArray *) devices, i);
+    NMDevice *device = g_ptr_array_index((GPtrArray *)devices, i);
 
     if (nm_device_get_device_type(device) != NM_DEVICE_TYPE_WIFI)
       continue;
@@ -363,23 +352,21 @@ compatible_wifi_device_for_profile(NMClient *client, NMRemoteConnection *connect
   return NULL;
 }
 
-static gboolean
-saved_profile_is_connected(NMClient *client, NMRemoteConnection *profile)
-{
+static gboolean saved_profile_is_connected(NMClient *client,
+                                           NMRemoteConnection *profile) {
   const char *uuid = nm_connection_get_uuid(NM_CONNECTION(profile));
   NMActiveConnection *active = active_connection_by_uuid(client, uuid);
 
   return row_state_preferred(network_sidebar_connection_row_state(active));
 }
 
-static GPtrArray *
-build_wifi_entries(NMClient *client)
-{
+static GPtrArray *build_wifi_entries(NMClient *client) {
   const GPtrArray *devices = nm_client_get_devices(client);
-  GPtrArray *entries = g_ptr_array_new_with_free_func((GDestroyNotify) wifi_entry_free);
+  GPtrArray *entries =
+      g_ptr_array_new_with_free_func((GDestroyNotify)wifi_entry_free);
 
   for (guint i = 0; devices != NULL && i < devices->len; i++) {
-    NMDevice *device = g_ptr_array_index((GPtrArray *) devices, i);
+    NMDevice *device = g_ptr_array_index((GPtrArray *)devices, i);
     NMDeviceWifi *wifi;
     NMActiveConnection *active_connection;
     const GPtrArray *access_points;
@@ -391,9 +378,12 @@ build_wifi_entries(NMClient *client)
     access_points = nm_device_wifi_get_access_points(wifi);
 
     for (guint j = 0; access_points != NULL && j < access_points->len; j++) {
-      NMAccessPoint *ap = g_ptr_array_index((GPtrArray *) access_points, j);
-      NMActiveConnection *current_active = ap_matches_active(wifi, ap, active_connection) ? active_connection : NULL;
-      NetworkSidebarRowState row_state = network_sidebar_connection_row_state(current_active);
+      NMAccessPoint *ap = g_ptr_array_index((GPtrArray *)access_points, j);
+      NMActiveConnection *current_active =
+          ap_matches_active(wifi, ap, active_connection) ? active_connection
+                                                         : NULL;
+      NetworkSidebarRowState row_state =
+          network_sidebar_connection_row_state(current_active);
       WifiEntry *current = NULL;
 
       for (guint k = 0; k < entries->len; k++) {
@@ -406,20 +396,20 @@ build_wifi_entries(NMClient *client)
 
       if (current == NULL) {
         current = g_new0(WifiEntry, 1);
-        current->members = g_ptr_array_new_with_free_func((GDestroyNotify) wifi_member_free);
+        current->members =
+            g_ptr_array_new_with_free_func((GDestroyNotify)wifi_member_free);
         g_ptr_array_add(entries, current);
       }
-      g_ptr_array_add(current->members, wifi_member_new(wifi, ap, current_active, row_state));
+      g_ptr_array_add(current->members,
+                      wifi_member_new(wifi, ap, current_active, row_state));
     }
   }
   return entries;
 }
 
-static gint
-wifi_entry_compare(gconstpointer left, gconstpointer right)
-{
-  WifiEntry *left_entry = *(WifiEntry * const *) left;
-  WifiEntry *right_entry = *(WifiEntry * const *) right;
+static gint wifi_entry_compare(gconstpointer left, gconstpointer right) {
+  WifiEntry *left_entry = *(WifiEntry *const *)left;
+  WifiEntry *right_entry = *(WifiEntry *const *)right;
   WifiMember *left_member = wifi_entry_best_member(left_entry);
   WifiMember *right_member = wifi_entry_best_member(right_entry);
   int left_rank = row_state_rank(left_member->row_state);
@@ -427,12 +417,11 @@ wifi_entry_compare(gconstpointer left, gconstpointer right)
 
   if (left_rank != right_rank)
     return left_rank - right_rank;
-  return (int) nm_access_point_get_strength(right_member->ap) - (int) nm_access_point_get_strength(left_member->ap);
+  return (int)nm_access_point_get_strength(right_member->ap) -
+         (int)nm_access_point_get_strength(left_member->ap);
 }
 
-static gboolean
-wifi_entry_has_multiple_devices(WifiEntry *entry)
-{
+static gboolean wifi_entry_has_multiple_devices(WifiEntry *entry) {
   WifiMember *first = g_ptr_array_index(entry->members, 0);
 
   for (guint i = 1; i < entry->members->len; i++) {
@@ -444,24 +433,26 @@ wifi_entry_has_multiple_devices(WifiEntry *entry)
   return FALSE;
 }
 
-static gboolean
-same_ap_display_identity(NMAccessPoint *left, NMAccessPoint *right)
-{
+static gboolean same_ap_display_identity(NMAccessPoint *left,
+                                         NMAccessPoint *right) {
   const char *left_bssid = nm_access_point_get_bssid(left);
   const char *right_bssid = nm_access_point_get_bssid(right);
 
-  return ssid_bytes_equal(nm_access_point_get_ssid(left), nm_access_point_get_ssid(right)) &&
-         g_ascii_strcasecmp(left_bssid != NULL ? left_bssid : "", right_bssid != NULL ? right_bssid : "") == 0 &&
-         nm_access_point_get_frequency(left) == nm_access_point_get_frequency(right) &&
+  return ssid_bytes_equal(nm_access_point_get_ssid(left),
+                          nm_access_point_get_ssid(right)) &&
+         g_ascii_strcasecmp(left_bssid != NULL ? left_bssid : "",
+                            right_bssid != NULL ? right_bssid : "") == 0 &&
+         nm_access_point_get_frequency(left) ==
+             nm_access_point_get_frequency(right) &&
          nm_access_point_get_mode(left) == nm_access_point_get_mode(right) &&
          ap_security_flags(left) == ap_security_flags(right) &&
-         nm_access_point_get_wpa_flags(left) == nm_access_point_get_wpa_flags(right) &&
-         nm_access_point_get_rsn_flags(left) == nm_access_point_get_rsn_flags(right);
+         nm_access_point_get_wpa_flags(left) ==
+             nm_access_point_get_wpa_flags(right) &&
+         nm_access_point_get_rsn_flags(left) ==
+             nm_access_point_get_rsn_flags(right);
 }
 
-static void
-mark_device_interfaces(GPtrArray *entries)
-{
+static void mark_device_interfaces(GPtrArray *entries) {
   for (guint i = 0; i < entries->len; i++) {
     WifiEntry *entry = g_ptr_array_index(entries, i);
     WifiMember *member = g_ptr_array_index(entry->members, 0);
@@ -484,18 +475,18 @@ mark_device_interfaces(GPtrArray *entries)
   }
 }
 
-static char *
-wifi_entry_frequency_label(WifiEntry *entry, NMRemoteConnection *profile)
-{
-  g_autoptr(GHashTable) seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+static char *wifi_entry_frequency_label(WifiEntry *entry,
+                                        NMRemoteConnection *profile) {
+  g_autoptr(GHashTable) seen =
+      g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
   g_autoptr(GString) labels = g_string_new(NULL);
 
   for (guint i = 0; i < entry->members->len; i++) {
     WifiMember *member = g_ptr_array_index(entry->members, i);
-    g_autofree char *label = network_sidebar_frequency_label(nm_access_point_get_frequency(member->ap));
+    g_autofree char *label = network_sidebar_frequency_label(
+        nm_access_point_get_frequency(member->ap));
 
-    if (profile != NULL &&
-        !wifi_member_active_for_profile(member, profile) &&
+    if (profile != NULL && !wifi_member_active_for_profile(member, profile) &&
         !wifi_member_matches_profile(member, profile))
       continue;
     if (g_hash_table_contains(seen, label))
@@ -508,9 +499,7 @@ wifi_entry_frequency_label(WifiEntry *entry, NMRemoteConnection *profile)
   return g_string_free(g_steal_pointer(&labels), FALSE);
 }
 
-static char *
-channel_label(guint32 mhz)
-{
+static char *channel_label(guint32 mhz) {
   if (mhz == 2484)
     return g_strdup("Channel 14");
   if (mhz >= 2412 && mhz <= 2472 && (mhz - 2407) % 5 == 0)
@@ -522,9 +511,7 @@ channel_label(guint32 mhz)
   return NULL;
 }
 
-static void
-append_subtitle_part(GString *subtitle, const char *part)
-{
+static void append_subtitle_part(GString *subtitle, const char *part) {
   if (part == NULL || *part == '\0')
     return;
   if (subtitle->len > 0)
@@ -532,11 +519,11 @@ append_subtitle_part(GString *subtitle, const char *part)
   g_string_append(subtitle, part);
 }
 
-static char *
-wifi_entry_subtitle(WifiEntry *entry, WifiMember *member, NMRemoteConnection *saved)
-{
+static char *wifi_entry_subtitle(WifiEntry *entry, WifiMember *member,
+                                 NMRemoteConnection *saved) {
   g_autoptr(GString) subtitle = g_string_new(NULL);
-  g_autofree char *signal = g_strdup_printf("Signal %u%%", nm_access_point_get_strength(member->ap));
+  g_autofree char *signal =
+      g_strdup_printf("Signal %u%%", nm_access_point_get_strength(member->ap));
   g_autofree char *security = network_sidebar_ap_security_label(member->ap);
   g_autofree char *frequency = wifi_entry_frequency_label(entry, saved);
 
@@ -545,14 +532,18 @@ wifi_entry_subtitle(WifiEntry *entry, WifiMember *member, NMRemoteConnection *sa
   append_subtitle_part(subtitle, frequency);
   if (!ap_has_ssid(member->ap)) {
     const char *bssid = nm_access_point_get_bssid(member->ap);
-    g_autofree char *bssid_part = bssid != NULL && *bssid != '\0' ? g_strdup_printf("BSSID %s", bssid) : NULL;
-    g_autofree char *channel = channel_label(nm_access_point_get_frequency(member->ap));
+    g_autofree char *bssid_part = bssid != NULL && *bssid != '\0'
+                                      ? g_strdup_printf("BSSID %s", bssid)
+                                      : NULL;
+    g_autofree char *channel =
+        channel_label(nm_access_point_get_frequency(member->ap));
     append_subtitle_part(subtitle, bssid_part);
     append_subtitle_part(subtitle, channel);
   }
   if (entry->show_device_iface) {
     const char *iface = nm_device_get_iface(NM_DEVICE(member->device));
-    g_autofree char *iface_part = g_strdup_printf("Interface %s", iface != NULL ? iface : "unknown");
+    g_autofree char *iface_part =
+        g_strdup_printf("Interface %s", iface != NULL ? iface : "unknown");
     append_subtitle_part(subtitle, iface_part);
   }
   if (saved != NULL)
@@ -560,9 +551,8 @@ wifi_entry_subtitle(WifiEntry *entry, WifiMember *member, NMRemoteConnection *sa
   return g_string_free(g_steal_pointer(&subtitle), FALSE);
 }
 
-static char *
-wifi_entry_title(WifiMember *member, NMRemoteConnection *saved, NMActiveConnection *active)
-{
+static char *wifi_entry_title(WifiMember *member, NMRemoteConnection *saved,
+                              NMActiveConnection *active) {
   g_autofree char *ssid = network_sidebar_ap_ssid_text(member->ap);
 
   if (saved != NULL)
@@ -572,9 +562,9 @@ wifi_entry_title(WifiMember *member, NMRemoteConnection *saved, NMActiveConnecti
   return g_steal_pointer(&ssid);
 }
 
-static GtkWidget *
-subgroup_list_with_suffix(const char *title, GtkWidget *suffix, GtkWidget **out_list)
-{
+static GtkWidget *subgroup_list_with_suffix(const char *title,
+                                            GtkWidget *suffix,
+                                            GtkWidget **out_list) {
   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
   GtkWidget *list = gtk_list_box_new();
 
@@ -601,64 +591,58 @@ subgroup_list_with_suffix(const char *title, GtkWidget *suffix, GtkWidget **out_
   return box;
 }
 
-static GtkWidget *
-subgroup_list(const char *title, GtkWidget **out_list)
-{
+static GtkWidget *subgroup_list(const char *title, GtkWidget **out_list) {
   return subgroup_list_with_suffix(title, NULL, out_list);
 }
 
-static void
-on_wifi_row_activated(GtkListBoxRow *row, gpointer user_data)
-{
+static void on_wifi_row_activated(GtkListBoxRow *row, gpointer user_data) {
   WifiRowAction *data = user_data;
-  (void) row;
+  (void)row;
 
   if (data->active != NULL)
     network_sidebar_actions_deactivate(data->actions, data->active);
   else if (data->saved != NULL && data->device != NULL && data->ap != NULL)
-    network_sidebar_actions_activate_saved_wifi_profile_on_device(data->actions, data->saved, data->device, data->ap);
+    network_sidebar_actions_activate_saved_wifi_profile_on_device(
+        data->actions, data->saved, data->device, data->ap);
   else if (data->device != NULL && data->ap != NULL)
     network_sidebar_actions_connect_wifi(data->actions, data->device, data->ap);
   else if (data->saved != NULL)
-    network_sidebar_actions_activate_saved_wifi_profile(data->actions, data->saved);
+    network_sidebar_actions_activate_saved_wifi_profile(data->actions,
+                                                        data->saved);
 }
 
-static void
-on_wifi_edit_clicked(GtkButton *button, gpointer user_data)
-{
+static void on_wifi_edit_clicked(GtkButton *button, gpointer user_data) {
   WifiRowAction *data = user_data;
-  (void) button;
+  (void)button;
   if (data->saved != NULL)
     network_sidebar_actions_edit_connection(data->actions, data->saved);
 }
 
-static void
-on_wifi_remove_clicked(GtkButton *button, gpointer user_data)
-{
+static void on_wifi_remove_clicked(GtkButton *button, gpointer user_data) {
   WifiRowAction *data = user_data;
-  (void) button;
+  (void)button;
   if (data->saved != NULL)
-    network_sidebar_actions_confirm_delete_connection(data->actions, data->saved, "Wi-Fi");
+    network_sidebar_actions_confirm_delete_connection(data->actions,
+                                                      data->saved, "Wi-Fi");
 }
 
-static void
-on_wifi_switch(GtkSwitch *switch_widget, GParamSpec *pspec, gpointer user_data)
-{
+static void on_wifi_switch(GtkSwitch *switch_widget, GParamSpec *pspec,
+                           gpointer user_data) {
   NetworkSidebarActions *actions = user_data;
-  (void) pspec;
-  network_sidebar_actions_set_wireless_enabled(actions, gtk_switch_get_active(switch_widget));
+  (void)pspec;
+  network_sidebar_actions_set_wireless_enabled(
+      actions, gtk_switch_get_active(switch_widget));
 }
 
-static void
-on_add_wifi_clicked(GtkButton *button, gpointer user_data)
-{
-  (void) button;
-  network_sidebar_actions_create_profile(user_data, NETWORK_SIDEBAR_PROFILE_WIFI);
+static void on_add_wifi_clicked(GtkButton *button, gpointer user_data) {
+  (void)button;
+  network_sidebar_actions_create_profile(user_data,
+                                         NETWORK_SIDEBAR_PROFILE_WIFI);
 }
 
-static char *
-saved_profile_row_subtitle(NMRemoteConnection *profile, NMActiveConnection *active, NetworkSidebarRowState row_state)
-{
+static char *saved_profile_row_subtitle(NMRemoteConnection *profile,
+                                        NMActiveConnection *active,
+                                        NetworkSidebarRowState row_state) {
   g_autoptr(GString) subtitle = g_string_new(NULL);
   g_autofree char *details = network_sidebar_wifi_profile_subtitle(profile);
 
@@ -673,9 +657,8 @@ saved_profile_row_subtitle(NMRemoteConnection *profile, NMActiveConnection *acti
   return g_string_free(g_steal_pointer(&subtitle), FALSE);
 }
 
-static char *
-saved_profile_activation_note(NMClient *client, NMRemoteConnection *profile)
-{
+static char *saved_profile_activation_note(NMClient *client,
+                                           NMRemoteConnection *profile) {
   if (!nm_client_networking_get_enabled(client))
     return g_strdup("Enable networking to connect");
   if (!nm_client_wireless_hardware_get_enabled(client))
@@ -687,16 +670,21 @@ saved_profile_activation_note(NMClient *client, NMRemoteConnection *profile)
   return NULL;
 }
 
-static void
-add_saved_profile_row(GtkListBox *list, NMClient *client, NetworkSidebarActions *actions, NMRemoteConnection *profile)
-{
+static void add_saved_profile_row(GtkListBox *list, NMClient *client,
+                                  NetworkSidebarActions *actions,
+                                  NMRemoteConnection *profile) {
   const char *uuid = nm_connection_get_uuid(NM_CONNECTION(profile));
   NMActiveConnection *active = active_connection_by_uuid(client, uuid);
-  NetworkSidebarRowState row_state = network_sidebar_connection_row_state(active);
-  g_autofree char *title = network_sidebar_connection_name(NM_CONNECTION(profile), "Wi-Fi");
-  g_autofree char *subtitle = saved_profile_row_subtitle(profile, active, row_state);
-  g_autofree char *activation_note = active == NULL ? saved_profile_activation_note(client, profile) : NULL;
-  GtkWidget *row = network_sidebar_action_row(title, subtitle, "network-wireless-symbolic");
+  NetworkSidebarRowState row_state =
+      network_sidebar_connection_row_state(active);
+  g_autofree char *title =
+      network_sidebar_connection_name(NM_CONNECTION(profile), "Wi-Fi");
+  g_autofree char *subtitle =
+      saved_profile_row_subtitle(profile, active, row_state);
+  g_autofree char *activation_note =
+      active == NULL ? saved_profile_activation_note(client, profile) : NULL;
+  GtkWidget *row =
+      network_sidebar_action_row(title, subtitle, "network-wireless-symbolic");
   WifiRowAction *row_action = g_new0(WifiRowAction, 1);
   GtkWidget *edit_button;
   GtkWidget *remove_button;
@@ -708,30 +696,34 @@ add_saved_profile_row(GtkListBox *list, NMClient *client, NetworkSidebarActions 
   network_sidebar_apply_row_state(row, row_state);
 
   edit_button = network_sidebar_flat_button("document-edit-symbolic", "Edit");
-  g_signal_connect(edit_button, "clicked", G_CALLBACK(on_wifi_edit_clicked), row_action);
+  g_signal_connect(edit_button, "clicked", G_CALLBACK(on_wifi_edit_clicked),
+                   row_action);
   adw_action_row_add_suffix(ADW_ACTION_ROW(row), edit_button);
 
   remove_button = network_sidebar_flat_button("user-trash-symbolic", "Remove");
-  g_signal_connect(remove_button, "clicked", G_CALLBACK(on_wifi_remove_clicked), row_action);
+  g_signal_connect(remove_button, "clicked", G_CALLBACK(on_wifi_remove_clicked),
+                   row_action);
   adw_action_row_add_suffix(ADW_ACTION_ROW(row), remove_button);
 
   if (activation_note != NULL)
     gtk_widget_set_tooltip_text(row, activation_note);
   gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), can_activate);
-  g_signal_connect_data(row, "activated", G_CALLBACK(on_wifi_row_activated), row_action, wifi_row_action_closure_notify, 0);
+  g_signal_connect_data(row, "activated", G_CALLBACK(on_wifi_row_activated),
+                        row_action, wifi_row_action_closure_notify, 0);
   gtk_list_box_append(list, row);
 }
 
-static guint
-unmatched_saved_profile_count(NMClient *client, GPtrArray *profiles, GHashTable *visible_saved_keys)
-{
+static guint unmatched_saved_profile_count(NMClient *client,
+                                           GPtrArray *profiles,
+                                           GHashTable *visible_saved_keys) {
   guint count = 0;
 
   for (guint i = 0; profiles != NULL && i < profiles->len; i++) {
     NMRemoteConnection *profile = g_ptr_array_index(profiles, i);
     g_autofree char *key = saved_profile_key(profile);
 
-    if (visible_saved_keys != NULL && g_hash_table_contains(visible_saved_keys, key))
+    if (visible_saved_keys != NULL &&
+        g_hash_table_contains(visible_saved_keys, key))
       continue;
     if (saved_profile_is_connected(client, profile))
       continue;
@@ -740,20 +732,17 @@ unmatched_saved_profile_count(NMClient *client, GPtrArray *profiles, GHashTable 
   return count;
 }
 
-static guint
-add_unmatched_connected_saved_profile_rows(GtkListBox *list,
-                                          NMClient *client,
-                                          NetworkSidebarActions *actions,
-                                          GPtrArray *profiles,
-                                          GHashTable *visible_saved_keys)
-{
+static guint add_unmatched_connected_saved_profile_rows(
+    GtkListBox *list, NMClient *client, NetworkSidebarActions *actions,
+    GPtrArray *profiles, GHashTable *visible_saved_keys) {
   guint added = 0;
 
   for (guint i = 0; profiles != NULL && i < profiles->len; i++) {
     NMRemoteConnection *profile = g_ptr_array_index(profiles, i);
     g_autofree char *key = saved_profile_key(profile);
 
-    if (visible_saved_keys != NULL && g_hash_table_contains(visible_saved_keys, key))
+    if (visible_saved_keys != NULL &&
+        g_hash_table_contains(visible_saved_keys, key))
       continue;
     if (!saved_profile_is_connected(client, profile))
       continue;
@@ -763,20 +752,19 @@ add_unmatched_connected_saved_profile_rows(GtkListBox *list,
   return added;
 }
 
-static guint
-add_unmatched_saved_profile_rows(GtkListBox *list,
-                                 NMClient *client,
-                                 NetworkSidebarActions *actions,
-                                 GPtrArray *profiles,
-                                 GHashTable *visible_saved_keys)
-{
+static guint add_unmatched_saved_profile_rows(GtkListBox *list,
+                                              NMClient *client,
+                                              NetworkSidebarActions *actions,
+                                              GPtrArray *profiles,
+                                              GHashTable *visible_saved_keys) {
   guint added = 0;
 
   for (guint i = 0; profiles != NULL && i < profiles->len; i++) {
     NMRemoteConnection *profile = g_ptr_array_index(profiles, i);
     g_autofree char *key = saved_profile_key(profile);
 
-    if (visible_saved_keys != NULL && g_hash_table_contains(visible_saved_keys, key))
+    if (visible_saved_keys != NULL &&
+        g_hash_table_contains(visible_saved_keys, key))
       continue;
     if (saved_profile_is_connected(client, profile))
       continue;
@@ -786,18 +774,14 @@ add_unmatched_saved_profile_rows(GtkListBox *list,
   return added;
 }
 
-static void
-add_empty_saved_row(GtkListBox *list, const char *title)
-{
+static void add_empty_saved_row(GtkListBox *list, const char *title) {
   gtk_list_box_append(list, network_sidebar_action_row(title, NULL, NULL));
 }
 
-static void
-add_saved_profiles_only_group(AdwPreferencesGroup *group,
-                              NMClient *client,
-                              NetworkSidebarActions *actions,
-                              GPtrArray *profiles)
-{
+static void add_saved_profiles_only_group(AdwPreferencesGroup *group,
+                                          NMClient *client,
+                                          NetworkSidebarActions *actions,
+                                          GPtrArray *profiles) {
   guint out_of_range_count;
   GtkWidget *saved_list = NULL;
   GtkWidget *saved_box;
@@ -809,26 +793,26 @@ add_saved_profiles_only_group(AdwPreferencesGroup *group,
 
   saved_box = subgroup_list("Saved networks", &saved_list);
   adw_preferences_group_add(group, saved_box);
-  added = add_unmatched_saved_profile_rows(GTK_LIST_BOX(saved_list), client, actions, profiles, NULL);
+  added = add_unmatched_saved_profile_rows(GTK_LIST_BOX(saved_list), client,
+                                           actions, profiles, NULL);
   if (added == 0)
     add_empty_saved_row(GTK_LIST_BOX(saved_list), "No saved Wi-Fi profiles");
 }
 
-static void
-add_network_row(GtkListBox *list,
-                NMClient *client,
-                NetworkSidebarActions *actions,
-                WifiEntry *entry,
-                WifiMember *member,
-                NMRemoteConnection *saved,
-                NMActiveConnection *active,
-                NetworkSidebarRowState row_state)
-{
+static void add_network_row(GtkListBox *list, NMClient *client,
+                            NetworkSidebarActions *actions, WifiEntry *entry,
+                            WifiMember *member, NMRemoteConnection *saved,
+                            NMActiveConnection *active,
+                            NetworkSidebarRowState row_state) {
   g_autofree char *title = wifi_entry_title(member, saved, active);
   g_autofree char *subtitle = wifi_entry_subtitle(entry, member, saved);
-  GtkWidget *row = network_sidebar_action_row(title, subtitle, network_sidebar_signal_icon(nm_access_point_get_strength(member->ap)));
+  GtkWidget *row = network_sidebar_action_row(
+      title, subtitle,
+      network_sidebar_signal_icon(nm_access_point_get_strength(member->ap)));
   WifiRowAction *row_action = g_new0(WifiRowAction, 1);
-  gboolean can_activate = active != NULL || (nm_client_networking_get_enabled(client) && nm_client_wireless_get_enabled(client));
+  gboolean can_activate =
+      active != NULL || (nm_client_networking_get_enabled(client) &&
+                         nm_client_wireless_get_enabled(client));
 
   row_action->actions = network_sidebar_actions_ref(actions);
   row_action->device = g_object_ref(member->device);
@@ -838,28 +822,30 @@ add_network_row(GtkListBox *list,
   network_sidebar_apply_row_state(row, row_state);
 
   if (row_action->saved != NULL) {
-    GtkWidget *edit_button = network_sidebar_flat_button("document-edit-symbolic", "Edit");
+    GtkWidget *edit_button =
+        network_sidebar_flat_button("document-edit-symbolic", "Edit");
     GtkWidget *remove_button;
 
-    g_signal_connect(edit_button, "clicked", G_CALLBACK(on_wifi_edit_clicked), row_action);
+    g_signal_connect(edit_button, "clicked", G_CALLBACK(on_wifi_edit_clicked),
+                     row_action);
     adw_action_row_add_suffix(ADW_ACTION_ROW(row), edit_button);
 
-    remove_button = network_sidebar_flat_button("user-trash-symbolic", "Remove");
-    g_signal_connect(remove_button, "clicked", G_CALLBACK(on_wifi_remove_clicked), row_action);
+    remove_button =
+        network_sidebar_flat_button("user-trash-symbolic", "Remove");
+    g_signal_connect(remove_button, "clicked",
+                     G_CALLBACK(on_wifi_remove_clicked), row_action);
     adw_action_row_add_suffix(ADW_ACTION_ROW(row), remove_button);
   }
 
   gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(row), can_activate);
-  g_signal_connect_data(row, "activated", G_CALLBACK(on_wifi_row_activated), row_action, wifi_row_action_closure_notify, 0);
+  g_signal_connect_data(row, "activated", G_CALLBACK(on_wifi_row_activated),
+                        row_action, wifi_row_action_closure_notify, 0);
   gtk_list_box_append(list, row);
 }
 
-static guint
-add_active_network_rows(GtkListBox *list,
-                        NMClient *client,
-                        NetworkSidebarActions *actions,
-                        WifiEntry *entry)
-{
+static guint add_active_network_rows(GtkListBox *list, NMClient *client,
+                                     NetworkSidebarActions *actions,
+                                     WifiEntry *entry) {
   g_autoptr(GHashTable) seen = g_hash_table_new(g_direct_hash, g_direct_equal);
   guint added = 0;
 
@@ -872,8 +858,11 @@ add_active_network_rows(GtkListBox *list,
     if (g_hash_table_contains(seen, member->active))
       continue;
 
-    for (guint j = 0; entry->saved_connections != NULL && j < entry->saved_connections->len; j++) {
-      NMRemoteConnection *candidate = g_ptr_array_index(entry->saved_connections, j);
+    for (guint j = 0;
+         entry->saved_connections != NULL && j < entry->saved_connections->len;
+         j++) {
+      NMRemoteConnection *candidate =
+          g_ptr_array_index(entry->saved_connections, j);
 
       if (wifi_member_active_for_profile(member, candidate)) {
         saved = candidate;
@@ -881,39 +870,32 @@ add_active_network_rows(GtkListBox *list,
       }
     }
     g_hash_table_add(seen, member->active);
-    add_network_row(list, client, actions, entry, member, saved, member->active, member->row_state);
+    add_network_row(list, client, actions, entry, member, saved, member->active,
+                    member->row_state);
     added++;
   }
   return added;
 }
 
-static void
-add_network_rows(GtkListBox *connected_list,
-                 GtkListBox *available_list,
-                 NMClient *client,
-                 NetworkSidebarActions *actions,
-                 WifiEntry *entry,
-                 guint *connected_count,
-                 guint *available_count)
-{
-  guint active_count = add_active_network_rows(connected_list, client, actions, entry);
+static void add_network_rows(GtkListBox *connected_list,
+                             GtkListBox *available_list, NMClient *client,
+                             NetworkSidebarActions *actions, WifiEntry *entry,
+                             guint *connected_count, guint *available_count) {
+  guint active_count =
+      add_active_network_rows(connected_list, client, actions, entry);
 
   *connected_count += active_count;
   if (entry->saved_connections != NULL && entry->saved_connections->len > 0) {
     for (guint i = 0; i < entry->saved_connections->len; i++) {
-      NMRemoteConnection *saved = g_ptr_array_index(entry->saved_connections, i);
+      NMRemoteConnection *saved =
+          g_ptr_array_index(entry->saved_connections, i);
       WifiMember *member = wifi_entry_best_member_for_profile(entry, saved);
 
-      if (wifi_member_active_for_profile(member, saved) && row_state_preferred(member->row_state))
+      if (wifi_member_active_for_profile(member, saved) &&
+          row_state_preferred(member->row_state))
         continue;
-      add_network_row(available_list,
-                      client,
-                      actions,
-                      entry,
-                      member,
-                      saved,
-                      NULL,
-                      NETWORK_SIDEBAR_ROW_STATE_NONE);
+      add_network_row(available_list, client, actions, entry, member, saved,
+                      NULL, NETWORK_SIDEBAR_ROW_STATE_NONE);
       (*available_count)++;
     }
     return;
@@ -925,24 +907,18 @@ add_network_rows(GtkListBox *connected_list,
   {
     WifiMember *member = wifi_entry_best_member(entry);
 
-    add_network_row(available_list,
-                    client,
-                    actions,
-                    entry,
-                    member,
-                    NULL,
-                    NULL,
+    add_network_row(available_list, client, actions, entry, member, NULL, NULL,
                     NETWORK_SIDEBAR_ROW_STATE_NONE);
     (*available_count)++;
   }
 }
 
-void
-network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebarActions *actions)
-{
+void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
+                                    NetworkSidebarActions *actions) {
   GtkWidget *group = network_sidebar_section_group("Wi-Fi");
   GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-  GtkWidget *add_button = network_sidebar_flat_button("list-add-symbolic", "Add Wi-Fi network");
+  GtkWidget *add_button =
+      network_sidebar_flat_button("list-add-symbolic", "Add Wi-Fi network");
   const GPtrArray *devices = nm_client_get_devices(client);
   gboolean has_wifi_device = FALSE;
   g_autoptr(GPtrArray) saved_profiles = NULL;
@@ -958,20 +934,23 @@ network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebar
   guint available_count = 0;
   guint saved_count = 0;
 
-  g_signal_connect(add_button, "clicked", G_CALLBACK(on_add_wifi_clicked), actions);
+  g_signal_connect(add_button, "clicked", G_CALLBACK(on_add_wifi_clicked),
+                   actions);
   gtk_box_append(GTK_BOX(header), add_button);
 
   if (nm_client_wireless_hardware_get_enabled(client)) {
     GtkWidget *wifi_switch = gtk_switch_new();
-    gtk_switch_set_active(GTK_SWITCH(wifi_switch), nm_client_wireless_get_enabled(client));
+    gtk_switch_set_active(GTK_SWITCH(wifi_switch),
+                          nm_client_wireless_get_enabled(client));
     gtk_widget_set_valign(wifi_switch, GTK_ALIGN_CENTER);
-    g_signal_connect(wifi_switch, "notify::active", G_CALLBACK(on_wifi_switch), actions);
+    g_signal_connect(wifi_switch, "notify::active", G_CALLBACK(on_wifi_switch),
+                     actions);
     gtk_box_append(GTK_BOX(header), wifi_switch);
   }
   adw_preferences_group_set_header_suffix(ADW_PREFERENCES_GROUP(group), header);
 
   for (guint i = 0; devices != NULL && i < devices->len; i++) {
-    NMDevice *device = g_ptr_array_index((GPtrArray *) devices, i);
+    NMDevice *device = g_ptr_array_index((GPtrArray *)devices, i);
     if (nm_device_get_device_type(device) == NM_DEVICE_TYPE_WIFI) {
       has_wifi_device = TRUE;
       break;
@@ -980,48 +959,71 @@ network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebar
   saved_profiles = saved_wifi_profiles(client);
 
   if (!has_wifi_device) {
-    network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "No Wi-Fi devices", "No wireless adapters are managed", "network-wireless-symbolic");
-    add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions, saved_profiles);
+    network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "No Wi-Fi devices",
+                               "No wireless adapters are managed",
+                               "network-wireless-symbolic");
+    add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions,
+                                  saved_profiles);
     gtk_box_append(content, group);
     return;
   }
   if (!nm_client_wireless_hardware_get_enabled(client)) {
-    network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "Wi-Fi hardware is disabled", "Check airplane mode or the wireless hardware switch", "network-wireless-disabled-symbolic");
-    add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions, saved_profiles);
+    network_sidebar_add_notice(
+        ADW_PREFERENCES_GROUP(group), "Wi-Fi hardware is disabled",
+        "Check airplane mode or the wireless hardware switch",
+        "network-wireless-disabled-symbolic");
+    add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions,
+                                  saved_profiles);
     gtk_box_append(content, group);
     return;
   }
   if (!nm_client_wireless_get_enabled(client)) {
-    add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions, saved_profiles);
+    add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions,
+                                  saved_profiles);
     gtk_box_append(content, group);
     return;
   }
 
   entries = build_wifi_entries(client);
   if (entries->len == 0 && saved_profiles->len == 0) {
-    const char *scan_error = network_sidebar_actions_get_wifi_scan_error(actions);
+    const char *scan_error =
+        network_sidebar_actions_get_wifi_scan_error(actions);
 
     if (network_sidebar_actions_get_wifi_scan_in_progress(actions))
-      network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "Scanning for networks...", "Updating nearby Wi-Fi access points", "view-refresh-symbolic");
+      network_sidebar_add_notice(
+          ADW_PREFERENCES_GROUP(group), "Scanning for networks...",
+          "Updating nearby Wi-Fi access points", "view-refresh-symbolic");
     else if (scan_error == NULL)
-      network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "No networks found", "No access points are currently visible", "network-wireless-signal-none-symbolic");
+      network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group),
+                                 "No networks found",
+                                 "No access points are currently visible",
+                                 "network-wireless-signal-none-symbolic");
     if (scan_error != NULL)
-      network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "Wi-Fi scan failed", scan_error, "dialog-warning-symbolic");
+      network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group),
+                                 "Wi-Fi scan failed", scan_error,
+                                 "dialog-warning-symbolic");
     gtk_box_append(content, group);
     return;
   }
 
   if (network_sidebar_actions_get_wifi_scan_error(actions) != NULL)
-    network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group), "Wi-Fi scan failed", network_sidebar_actions_get_wifi_scan_error(actions), "dialog-warning-symbolic");
+    network_sidebar_add_notice(
+        ADW_PREFERENCES_GROUP(group), "Wi-Fi scan failed",
+        network_sidebar_actions_get_wifi_scan_error(actions),
+        "dialog-warning-symbolic");
 
-  visible_saved_keys = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+  visible_saved_keys =
+      g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
   mark_device_interfaces(entries);
   assign_saved_wifi_connections(entries, saved_profiles);
   for (guint i = 0; i < entries->len; i++) {
     WifiEntry *entry = g_ptr_array_index(entries, i);
     g_ptr_array_sort(entry->saved_connections, saved_connection_compare);
-    for (guint j = 0; entry->saved_connections != NULL && j < entry->saved_connections->len; j++) {
-      NMRemoteConnection *saved = g_ptr_array_index(entry->saved_connections, j);
+    for (guint j = 0;
+         entry->saved_connections != NULL && j < entry->saved_connections->len;
+         j++) {
+      NMRemoteConnection *saved =
+          g_ptr_array_index(entry->saved_connections, j);
       g_hash_table_add(visible_saved_keys, saved_profile_key(saved));
     }
   }
@@ -1040,27 +1042,28 @@ network_sidebar_add_wifi_group(GtkBox *content, NMClient *client, NetworkSidebar
 
   for (guint i = 0; i < entries->len; i++) {
     WifiEntry *entry = g_ptr_array_index(entries, i);
-    add_network_rows(GTK_LIST_BOX(connected_list),
-                     GTK_LIST_BOX(available_list),
-                     client,
-                     actions,
-                     entry,
-                     &connected_count,
+    add_network_rows(GTK_LIST_BOX(connected_list), GTK_LIST_BOX(available_list),
+                     client, actions, entry, &connected_count,
                      &available_count);
   }
-  connected_count += add_unmatched_connected_saved_profile_rows(GTK_LIST_BOX(connected_list),
-                                                               client,
-                                                               actions,
-                                                               saved_profiles,
-                                                               visible_saved_keys);
-  saved_count += add_unmatched_saved_profile_rows(GTK_LIST_BOX(saved_list), client, actions, saved_profiles, visible_saved_keys);
+  connected_count += add_unmatched_connected_saved_profile_rows(
+      GTK_LIST_BOX(connected_list), client, actions, saved_profiles,
+      visible_saved_keys);
+  saved_count += add_unmatched_saved_profile_rows(
+      GTK_LIST_BOX(saved_list), client, actions, saved_profiles,
+      visible_saved_keys);
 
   if (connected_count == 0)
-    gtk_list_box_append(GTK_LIST_BOX(connected_list), network_sidebar_action_row("No connected networks", NULL, NULL));
+    gtk_list_box_append(
+        GTK_LIST_BOX(connected_list),
+        network_sidebar_action_row("No connected networks", NULL, NULL));
   if (available_count == 0)
-    gtk_list_box_append(GTK_LIST_BOX(available_list), network_sidebar_action_row("No other networks in range", NULL, NULL));
+    gtk_list_box_append(
+        GTK_LIST_BOX(available_list),
+        network_sidebar_action_row("No other networks in range", NULL, NULL));
   if (saved_count == 0)
-    add_empty_saved_row(GTK_LIST_BOX(saved_list), "No saved networks out of range");
+    add_empty_saved_row(GTK_LIST_BOX(saved_list),
+                        "No saved networks out of range");
 
   gtk_box_append(content, group);
 }

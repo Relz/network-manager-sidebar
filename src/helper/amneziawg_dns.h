@@ -9,8 +9,8 @@ typedef enum {
   DNS_CHANGE_OK,
   DNS_CHANGE_UNAVAILABLE,
   DNS_CHANGE_FAILED,
-  /* Link continuity, resolver identity, or a dispatched call's outcome was lost.
-   * Automatic rollback must not issue more resolver mutations. */
+  /* Link continuity, resolver identity, or a dispatched call's outcome was
+   * lost. Automatic rollback must not issue more resolver mutations. */
   DNS_CHANGE_UNCERTAIN,
 } DnsChangeResult;
 
@@ -21,20 +21,17 @@ typedef struct {
 } DnsChangeOutcome;
 
 gboolean dns_config_present(const NetworkSidebarAmneziaWGDnsConfig *dns);
-DnsChangeResult dns_select_backend(
-  const NetworkSidebarAmneziaWGDnsConfig *dns,
-  NetworkSidebarAmneziaWGDnsBackend *backend,
-  gint64 deadline);
+DnsChangeResult dns_select_backend(const NetworkSidebarAmneziaWGDnsConfig *dns,
+                                   NetworkSidebarAmneziaWGDnsBackend *backend,
+                                   gint64 deadline);
 /* Mutate only the selected/journaled backend. Resolver-specific executable
  * lookup and fallback commands are private implementation details. */
-DnsChangeOutcome dns_apply_selected(
-  const NetworkSidebarAmneziaWGLinkIdentity *identity,
-  const NetworkSidebarAmneziaWGDnsConfig *dns,
-  NetworkSidebarAmneziaWGDnsBackend backend,
-  gint64 deadline);
-DnsChangeOutcome dns_revert_selected(
-  const NetworkSidebarAmneziaWGLinkIdentity *identity,
-  NetworkSidebarAmneziaWGDnsBackend backend,
-  gint64 deadline);
+DnsChangeOutcome
+dns_apply_selected(const NetworkSidebarAmneziaWGLinkIdentity *identity,
+                   const NetworkSidebarAmneziaWGDnsConfig *dns,
+                   NetworkSidebarAmneziaWGDnsBackend backend, gint64 deadline);
+DnsChangeOutcome
+dns_revert_selected(const NetworkSidebarAmneziaWGLinkIdentity *identity,
+                    NetworkSidebarAmneziaWGDnsBackend backend, gint64 deadline);
 
 #endif

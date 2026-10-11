@@ -7,18 +7,16 @@
 
 static GdkMonitor *target_monitor(const char *target_output_name);
 
-char *
-network_sidebar_layer_shell_unavailable_message(void)
-{
+char *network_sidebar_layer_shell_unavailable_message(void) {
   if (gtk_layer_is_supported())
     return NULL;
-  return g_strdup_printf("%s (the current compositor/session does not support gtk4-layer-shell)",
-                         NETWORK_SIDEBAR_LAYER_SHELL_REQUIRED_MESSAGE);
+  return g_strdup_printf(
+      "%s (the current compositor/session does not support gtk4-layer-shell)",
+      NETWORK_SIDEBAR_LAYER_SHELL_REQUIRED_MESSAGE);
 }
 
-gboolean
-network_sidebar_initialize_layer_shell_window(GtkWindow *window, GError **error)
-{
+gboolean network_sidebar_initialize_layer_shell_window(GtkWindow *window,
+                                                       GError **error) {
   g_autofree char *message = network_sidebar_layer_shell_unavailable_message();
 
   if (message != NULL) {
@@ -31,28 +29,23 @@ network_sidebar_initialize_layer_shell_window(GtkWindow *window, GError **error)
   return TRUE;
 }
 
-static GtkLayerShellKeyboardMode
-keyboard_mode(void)
-{
-  if (gtk_layer_get_protocol_version() >= NETWORK_SIDEBAR_LAYER_SHELL_ON_DEMAND_PROTOCOL_VERSION)
-    return (GtkLayerShellKeyboardMode) 2;
+static GtkLayerShellKeyboardMode keyboard_mode(void) {
+  if (gtk_layer_get_protocol_version() >=
+      NETWORK_SIDEBAR_LAYER_SHELL_ON_DEMAND_PROTOCOL_VERSION)
+    return (GtkLayerShellKeyboardMode)2;
   return GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE;
 }
 
-static void
-set_respect_close_if_supported(GtkWindow *window)
-{
+static void set_respect_close_if_supported(GtkWindow *window) {
   if (gtk_layer_get_major_version() > 1 ||
-      (gtk_layer_get_major_version() == 1 && gtk_layer_get_minor_version() >= 3))
+      (gtk_layer_get_major_version() == 1 &&
+       gtk_layer_get_minor_version() >= 3))
     gtk_layer_set_respect_close(window, TRUE);
 }
 
-gboolean
-network_sidebar_configure_layer_shell_window(GtkWindow *window,
-                                             GtkWidget *panel,
-                                             const char *target_output_name,
-                                             GError **error)
-{
+gboolean network_sidebar_configure_layer_shell_window(
+    GtkWindow *window, GtkWidget *panel, const char *target_output_name,
+    GError **error) {
   g_autofree char *message = network_sidebar_layer_shell_unavailable_message();
   g_autoptr(GdkMonitor) monitor = NULL;
 
@@ -82,9 +75,8 @@ network_sidebar_configure_layer_shell_window(GtkWindow *window,
   return TRUE;
 }
 
-static GdkMonitor *
-monitor_for_output_name(GListModel *monitors, const char *output_name)
-{
+static GdkMonitor *monitor_for_output_name(GListModel *monitors,
+                                           const char *output_name) {
   guint count;
 
   if (output_name == NULL)
@@ -100,9 +92,7 @@ monitor_for_output_name(GListModel *monitors, const char *output_name)
   return NULL;
 }
 
-static GdkMonitor *
-target_monitor(const char *target_output_name)
-{
+static GdkMonitor *target_monitor(const char *target_output_name) {
   GdkDisplay *display = gdk_display_get_default();
   GListModel *monitors;
 

@@ -12,7 +12,8 @@ typedef enum {
 } NetworkSidebarInteractionOwner;
 
 typedef enum {
-  /* Temporarily block mapping, retaining the application's visibility intent. */
+  /* Temporarily block mapping, retaining the application's visibility intent.
+   */
   NETWORK_SIDEBAR_INTERACTION_BEGIN,
   /* Hide until completion, allowing explicit reopening in the meantime. */
   NETWORK_SIDEBAR_INTERACTION_DEFER,
@@ -22,9 +23,9 @@ typedef enum {
   NETWORK_SIDEBAR_INTERACTION_CANCEL,
 } NetworkSidebarInteractionEvent;
 
-typedef void (*NetworkSidebarInteractionCallback)(NetworkSidebarInteractionOwner owner,
-                                                  NetworkSidebarInteractionEvent event,
-                                                  gpointer user_data);
+typedef void (*NetworkSidebarInteractionCallback)(
+    NetworkSidebarInteractionOwner owner, NetworkSidebarInteractionEvent event,
+    gpointer user_data);
 
 G_END_DECLS
 

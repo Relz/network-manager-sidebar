@@ -50,19 +50,15 @@ struct _NetworkSidebarAwgSupervisor {
 
 static volatile sig_atomic_t sentinel_expected_parent = -1;
 
-static void
-close_fd(int *fd)
-{
+static void close_fd(int *fd) {
   if (*fd >= 0)
     close(*fd);
   *fd = -1;
 }
 
-static void
-kill_and_reap_setup_child(pid_t child)
-{
-  gint64 deadline = g_get_monotonic_time() +
-    SENTINEL_SETUP_REAP_TIMEOUT_MSEC * 1000;
+static void kill_and_reap_setup_child(pid_t child) {
+  gint64 deadline =
+      g_get_monotonic_time() + SENTINEL_SETUP_REAP_TIMEOUT_MSEC * 1000;
 
   kill(child, SIGKILL);
   while (g_get_monotonic_time() < deadline) {
@@ -76,17 +72,13 @@ kill_and_reap_setup_child(pid_t child)
   }
 }
 
-static gboolean
-set_nonblocking(int fd)
-{
+static gboolean set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL);
 
   return flags >= 0 && fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
 }
 
-static gboolean
-close_sentinel_fds(int ready_write, rlim_t fd_limit)
-{
+static gboolean close_sentinel_fds(int ready_write, rlim_t fd_limit) {
   if (ready_write != STDERR_FILENO + 1) {
     if (dup2(ready_write, STDERR_FILENO + 1) < 0)
       return FALSE;
@@ -98,14 +90,12 @@ close_sentinel_fds(int ready_write, rlim_t fd_limit)
 #endif
   if (fd_limit == RLIM_INFINITY || fd_limit > SENTINEL_FD_FALLBACK_LIMIT)
     return FALSE;
-  for (int fd = STDERR_FILENO + 2; fd < (int) fd_limit; fd++)
+  for (int fd = STDERR_FILENO + 2; fd < (int)fd_limit; fd++)
     close(fd);
   return TRUE;
 }
 
-static gboolean
-get_sentinel_fd_limit(rlim_t *fd_limit)
-{
+static gboolean get_sentinel_fd_limit(rlim_t *fd_limit) {
   g_autoptr(GDir) descriptors = NULL;
   struct rlimit limits;
   const char *entry;
@@ -133,30 +123,23 @@ get_sentinel_fd_limit(rlim_t *fd_limit)
     if (*fd_limit != RLIM_INFINITY && descriptor >= *fd_limit)
       *fd_limit = descriptor < G_MAXUINT64 ? descriptor + 1 : RLIM_INFINITY;
 
-next_descriptor:
+  next_descriptor:
     continue;
   }
 }
 
-static void
-sentinel_parent_death_handler(int signal_number)
-{
-  (void) signal_number;
-  if (getppid() == (pid_t) sentinel_expected_parent)
+static void sentinel_parent_death_handler(int signal_number) {
+  (void)signal_number;
+  if (getppid() == (pid_t)sentinel_expected_parent)
     return;
   kill(0, SIGKILL);
   _exit(127);
 }
 
-static void
-sentinel_child(pid_t expected_parent,
-               pid_t process_group,
-               int ready_read,
-               int ready_write,
-               rlim_t fd_limit)
-{
-  struct sigaction ignore_action = { 0 };
-  struct sigaction death_action = { 0 };
+static void sentinel_child(pid_t expected_parent, pid_t process_group,
+                           int ready_read, int ready_write, rlim_t fd_limit) {
+  struct sigaction ignore_action = {0};
+  struct sigaction death_action = {0};
   sigset_t unblocked;
   const guint8 ready = 1;
 
@@ -168,7 +151,7 @@ sentinel_child(pid_t expected_parent,
   death_action.sa_handler = sentinel_parent_death_handler;
   sigemptyset(&death_action.sa_mask);
   sigaddset(&death_action.sa_mask, SIGCONT);
-  sentinel_expected_parent = (sig_atomic_t) expected_parent;
+  sentinel_expected_parent = (sig_atomic_t)expected_parent;
   sigemptyset(&unblocked);
   if (sigaction(SIGTERM, &ignore_action, NULL) != 0 ||
       sigaction(SIGINT, &ignore_action, NULL) != 0 ||
@@ -182,7 +165,7 @@ sentinel_child(pid_t expected_parent,
     _exit(127);
   }
   ready_write = STDERR_FILENO + 1;
-  if (write(ready_write, &ready, sizeof(ready)) != (ssize_t) sizeof(ready)) {
+  if (write(ready_write, &ready, sizeof(ready)) != (ssize_t)sizeof(ready)) {
     kill(0, SIGKILL);
     _exit(127);
   }
@@ -191,10 +174,8 @@ sentinel_child(pid_t expected_parent,
     pause();
 }
 
-static pid_t
-spawn_sentinel(pid_t process_group)
-{
-  int ready[2] = { -1, -1 };
+static pid_t spawn_sentinel(pid_t process_group) {
+  int ready[2] = {-1, -1};
   const pid_t expected_parent = getpid();
   rlim_t fd_limit;
   guint8 response = 0;
@@ -216,14 +197,11 @@ spawn_sentinel(pid_t process_group)
     return -1;
   }
   if (sentinel == 0)
-    sentinel_child(expected_parent,
-                   process_group,
-                   ready[0],
-                   ready[1],
+    sentinel_child(expected_parent, process_group, ready[0], ready[1],
                    fd_limit);
 
   close_fd(&ready[1]);
-  readiness = (struct pollfd) { ready[0], POLLIN | POLLHUP, 0 };
+  readiness = (struct pollfd){ready[0], POLLIN | POLLHUP, 0};
   do
     count = poll(&readiness, 1, SENTINEL_READY_TIMEOUT_MSEC);
   while (count < 0 && errno == EINTR);
@@ -233,7 +211,7 @@ spawn_sentinel(pid_t process_group)
     while (count < 0 && errno == EINTR);
   }
   close_fd(&ready[0]);
-  if (count != (ssize_t) sizeof(response) || response != 1 ||
+  if (count != (ssize_t)sizeof(response) || response != 1 ||
       getpgid(sentinel) != process_group) {
     kill_and_reap_setup_child(sentinel);
     return -1;
@@ -241,9 +219,7 @@ spawn_sentinel(pid_t process_group)
   return sentinel;
 }
 
-static gboolean
-reap_sentinel(SupervisedGroup *group)
-{
+static gboolean reap_sentinel(SupervisedGroup *group) {
   pid_t waited;
 
   if (group->sentinel <= 0)
@@ -259,24 +235,18 @@ reap_sentinel(SupervisedGroup *group)
 
 static gboolean
 send_response(NetworkSidebarAwgSupervisor *supervisor,
-              NetworkSidebarAmneziaWGSupervisionMessage *message,
-              int status)
-{
+              NetworkSidebarAmneziaWGSupervisionMessage *message, int status) {
   ssize_t written;
 
   message->status = status;
   do
-    written = send(supervisor->fd,
-                   message,
-                   sizeof(*message),
+    written = send(supervisor->fd, message, sizeof(*message),
                    MSG_DONTWAIT | MSG_NOSIGNAL);
   while (written < 0 && errno == EINTR);
-  return written == (ssize_t) sizeof(*message);
+  return written == (ssize_t)sizeof(*message);
 }
 
-static GroupScanResult
-scan_process_group(const SupervisedGroup *group)
-{
+static GroupScanResult scan_process_group(const SupervisedGroup *group) {
   g_autoptr(GDir) proc = g_dir_open("/proc", 0, NULL);
 
   if (proc == NULL)
@@ -307,32 +277,27 @@ scan_process_group(const SupervisedGroup *group)
       continue;
     path = g_build_filename("/proc", entry, "stat", NULL);
     if (!g_file_get_contents(path, &contents, NULL, &error)) {
-      if (kill((pid_t) process, 0) != 0 && errno == ESRCH)
+      if (kill((pid_t)process, 0) != 0 && errno == ESRCH)
         continue;
       return GROUP_SCAN_FAILED;
     }
     closing_parenthesis = strrchr(contents, ')');
     if (closing_parenthesis == NULL ||
-        sscanf(closing_parenthesis + 2,
-               "%c %ld %ld",
-               &state,
-               &parent,
+        sscanf(closing_parenthesis + 2, "%c %ld %ld", &state, &parent,
                &process_group) != 3) {
-      if (kill((pid_t) process, 0) != 0 && errno == ESRCH)
+      if (kill((pid_t)process, 0) != 0 && errno == ESRCH)
         continue;
       return GROUP_SCAN_FAILED;
     }
     if (process_group == group->process_group && state != 'Z' && state != 'X')
       return GROUP_SCAN_LIVE;
 
-next_entry:
+  next_entry:
     continue;
   }
 }
 
-static void
-reap_retired_sentinels(NetworkSidebarAwgSupervisor *supervisor)
-{
+static void reap_retired_sentinels(NetworkSidebarAwgSupervisor *supervisor) {
   for (guint i = 0; i < supervisor->retired_sentinels->len;) {
     pid_t sentinel = g_array_index(supervisor->retired_sentinels, pid_t, i);
     pid_t waited;
@@ -347,11 +312,8 @@ reap_retired_sentinels(NetworkSidebarAwgSupervisor *supervisor)
   }
 }
 
-static gboolean
-unregister_group(NetworkSidebarAwgSupervisor *supervisor,
-                  gpointer group_key,
-                  SupervisedGroup *group)
-{
+static gboolean unregister_group(NetworkSidebarAwgSupervisor *supervisor,
+                                 gpointer group_key, SupervisedGroup *group) {
   if (group->sentinel > 0 && kill(group->sentinel, SIGKILL) != 0 &&
       errno != ESRCH)
     return FALSE;
@@ -367,16 +329,14 @@ unregister_group(NetworkSidebarAwgSupervisor *supervisor,
   return TRUE;
 }
 
-static gboolean
-sentinels_are_safe(NetworkSidebarAwgSupervisor *supervisor)
-{
+static gboolean sentinels_are_safe(NetworkSidebarAwgSupervisor *supervisor) {
   GHashTableIter iter;
   gpointer value;
 
   g_hash_table_iter_init(&iter, supervisor->owned_groups);
   while (g_hash_table_iter_next(&iter, NULL, &value)) {
     SupervisedGroup *group = value;
-    siginfo_t child_info = { 0 };
+    siginfo_t child_info = {0};
     int wait_result;
 
     if (group->sentinel <= 0) {
@@ -385,9 +345,7 @@ sentinels_are_safe(NetworkSidebarAwgSupervisor *supervisor)
       continue;
     }
     do
-      wait_result = waitid(P_PID,
-                           (id_t) group->sentinel,
-                           &child_info,
+      wait_result = waitid(P_PID, (id_t)group->sentinel, &child_info,
                            WEXITED | WNOHANG | WNOWAIT);
     while (wait_result != 0 && errno == EINTR);
     if (wait_result != 0)
@@ -404,12 +362,11 @@ sentinels_are_safe(NetworkSidebarAwgSupervisor *supervisor)
 
 static gboolean
 handle_message(NetworkSidebarAwgSupervisor *supervisor,
-               NetworkSidebarAmneziaWGSupervisionMessage *message)
-{
-  pid_t process_group = (pid_t) message->process_group;
+               NetworkSidebarAmneziaWGSupervisionMessage *message) {
+  pid_t process_group = (pid_t)message->process_group;
   gpointer group_key = GINT_TO_POINTER(message->process_group);
-  SupervisedGroup *group = g_hash_table_lookup(supervisor->owned_groups,
-                                                group_key);
+  SupervisedGroup *group =
+      g_hash_table_lookup(supervisor->owned_groups, group_key);
   GroupScanResult group_state;
   int status = 0;
   gboolean recoverable_rejection = FALSE;
@@ -419,7 +376,7 @@ handle_message(NetworkSidebarAwgSupervisor *supervisor,
       message->sequence == 0 || message->status != 0 || process_group <= 0)
     return FALSE;
 
-  switch ((NetworkSidebarAmneziaWGSupervisionType) message->type) {
+  switch ((NetworkSidebarAmneziaWGSupervisionType)message->type) {
   case NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_REGISTER:
     /* Retired sentinels consume child slots, but never block RELEASE. */
     reap_retired_sentinels(supervisor);
@@ -428,7 +385,7 @@ handle_message(NetworkSidebarAwgSupervisor *supervisor,
     } else if (group != NULL) {
       status = EEXIST;
     } else if (g_hash_table_size(supervisor->owned_groups) +
-                 supervisor->retired_sentinels->len >=
+                   supervisor->retired_sentinels->len >=
                MAX_SUPERVISED_GROUPS) {
       status = ENOSPC;
     } else {
@@ -464,7 +421,8 @@ handle_message(NetworkSidebarAwgSupervisor *supervisor,
       status = EIO;
     } else {
       /* Keep the sentinel waitable and the group owned until UNREGISTER or
-       * supervisor cleanup. This intent is not evidence that SIGKILL was sent. */
+       * supervisor cleanup. This intent is not evidence that SIGKILL was sent.
+       */
       group->helper_terminating = TRUE;
       if (group->pending_release) {
         group->pending_release = FALSE;
@@ -518,26 +476,22 @@ handle_message(NetworkSidebarAwgSupervisor *supervisor,
 }
 
 NetworkSidebarAwgSupervisor *
-network_sidebar_awg_supervisor_new(int fd, gboolean allow_release)
-{
+network_sidebar_awg_supervisor_new(int fd, gboolean allow_release) {
   NetworkSidebarAwgSupervisor *supervisor;
 
   if (fd < 0 || !set_nonblocking(fd))
     return NULL;
   supervisor = g_new0(NetworkSidebarAwgSupervisor, 1);
-  supervisor->owned_groups = g_hash_table_new_full(g_direct_hash,
-                                                    g_direct_equal,
-                                                    NULL,
-                                                    g_free);
+  supervisor->owned_groups =
+      g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
   supervisor->retired_sentinels = g_array_new(FALSE, FALSE, sizeof(pid_t));
   supervisor->fd = fd;
   supervisor->allow_release = allow_release;
   return supervisor;
 }
 
-void
-network_sidebar_awg_supervisor_free(NetworkSidebarAwgSupervisor *supervisor)
-{
+void network_sidebar_awg_supervisor_free(
+    NetworkSidebarAwgSupervisor *supervisor) {
   GHashTableIter iter;
   gpointer value;
 
@@ -559,8 +513,7 @@ network_sidebar_awg_supervisor_free(NetworkSidebarAwgSupervisor *supervisor)
 }
 
 gboolean
-network_sidebar_awg_supervisor_poll(NetworkSidebarAwgSupervisor *supervisor)
-{
+network_sidebar_awg_supervisor_poll(NetworkSidebarAwgSupervisor *supervisor) {
   if (supervisor == NULL)
     return FALSE;
   reap_retired_sentinels(supervisor);
@@ -574,9 +527,7 @@ network_sidebar_awg_supervisor_poll(NetworkSidebarAwgSupervisor *supervisor)
     ssize_t count;
 
     do
-      count = recv(supervisor->fd,
-                   &message,
-                   sizeof(message),
+      count = recv(supervisor->fd, &message, sizeof(message),
                    MSG_DONTWAIT | MSG_TRUNC);
     while (count < 0 && errno == EINTR);
     if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
@@ -600,7 +551,7 @@ network_sidebar_awg_supervisor_poll(NetworkSidebarAwgSupervisor *supervisor)
       supervisor->channel_closed = TRUE;
       return !supervisor->failed;
     }
-    if (count != (ssize_t) sizeof(message) ||
+    if (count != (ssize_t)sizeof(message) ||
         !handle_message(supervisor, &message)) {
       supervisor->failed = TRUE;
       close_fd(&supervisor->fd);
@@ -610,36 +561,27 @@ network_sidebar_awg_supervisor_poll(NetworkSidebarAwgSupervisor *supervisor)
   }
 }
 
-void
-network_sidebar_awg_supervisor_disable_release(
-  NetworkSidebarAwgSupervisor *supervisor)
-{
+void network_sidebar_awg_supervisor_disable_release(
+    NetworkSidebarAwgSupervisor *supervisor) {
   if (supervisor != NULL) {
     supervisor->allow_release = FALSE;
     supervisor->release_cancelled = TRUE;
   }
 }
 
-gboolean
-network_sidebar_awg_supervisor_release_pending(
-  const NetworkSidebarAwgSupervisor *supervisor)
-{
+gboolean network_sidebar_awg_supervisor_release_pending(
+    const NetworkSidebarAwgSupervisor *supervisor) {
   return supervisor != NULL && supervisor->group_released;
 }
 
-void
-network_sidebar_awg_supervisor_begin_cleanup(
-  NetworkSidebarAwgSupervisor *supervisor)
-{
+void network_sidebar_awg_supervisor_begin_cleanup(
+    NetworkSidebarAwgSupervisor *supervisor) {
   if (supervisor != NULL)
     supervisor->cleanup_started = TRUE;
 }
 
-void
-network_sidebar_awg_supervisor_signal_groups(
-  NetworkSidebarAwgSupervisor *supervisor,
-  int signal_number)
-{
+void network_sidebar_awg_supervisor_signal_groups(
+    NetworkSidebarAwgSupervisor *supervisor, int signal_number) {
   GHashTableIter iter;
   gpointer value;
 
@@ -657,10 +599,8 @@ network_sidebar_awg_supervisor_signal_groups(
   }
 }
 
-void
-network_sidebar_awg_supervisor_poll_cleanup(
-  NetworkSidebarAwgSupervisor *supervisor)
-{
+void network_sidebar_awg_supervisor_poll_cleanup(
+    NetworkSidebarAwgSupervisor *supervisor) {
   GHashTableIter iter;
   gpointer value;
 
@@ -684,9 +624,7 @@ network_sidebar_awg_supervisor_poll_cleanup(
       if (waited == group->sentinel)
         group->sentinel = -1;
       do
-        waited = waitpid(-group->process_group,
-                         &ignored_status,
-                         WNOHANG);
+        waited = waitpid(-group->process_group, &ignored_status, WNOHANG);
       while (waited < 0 && errno == EINTR);
     }
     if (waited < 0 && errno == ECHILD)
@@ -694,25 +632,18 @@ network_sidebar_awg_supervisor_poll_cleanup(
   }
 }
 
-void
-network_sidebar_awg_supervisor_detach_retired_sentinels(
-  NetworkSidebarAwgSupervisor *supervisor,
-  GArray *child_pids)
-{
+void network_sidebar_awg_supervisor_detach_retired_sentinels(
+    NetworkSidebarAwgSupervisor *supervisor, GArray *child_pids) {
   if (supervisor == NULL || child_pids == NULL)
     return;
   reap_retired_sentinels(supervisor);
-  g_array_append_vals(child_pids,
-                       supervisor->retired_sentinels->data,
-                       supervisor->retired_sentinels->len);
+  g_array_append_vals(child_pids, supervisor->retired_sentinels->data,
+                      supervisor->retired_sentinels->len);
   g_array_set_size(supervisor->retired_sentinels, 0);
 }
 
-void
-network_sidebar_awg_supervisor_detach_terminated_groups(
-  NetworkSidebarAwgSupervisor *supervisor,
-  GArray *process_groups)
-{
+void network_sidebar_awg_supervisor_detach_terminated_groups(
+    NetworkSidebarAwgSupervisor *supervisor, GArray *process_groups) {
   GHashTableIter iter;
   gpointer value;
 
@@ -734,10 +665,8 @@ network_sidebar_awg_supervisor_detach_terminated_groups(
   }
 }
 
-pid_t
-network_sidebar_awg_supervisor_finalize_release(
-  NetworkSidebarAwgSupervisor *supervisor)
-{
+pid_t network_sidebar_awg_supervisor_finalize_release(
+    NetworkSidebarAwgSupervisor *supervisor) {
   GHashTableIter iter;
   gpointer group_key;
   gpointer value;
@@ -761,9 +690,8 @@ network_sidebar_awg_supervisor_finalize_release(
   return process_group;
 }
 
-void
-network_sidebar_awg_supervisor_abort(NetworkSidebarAwgSupervisor *supervisor)
-{
+void network_sidebar_awg_supervisor_abort(
+    NetworkSidebarAwgSupervisor *supervisor) {
   if (supervisor == NULL)
     return;
   supervisor->failed = TRUE;
@@ -771,24 +699,17 @@ network_sidebar_awg_supervisor_abort(NetworkSidebarAwgSupervisor *supervisor)
   supervisor->channel_closed = TRUE;
 }
 
-gboolean
-network_sidebar_awg_supervisor_channel_closed(
-  const NetworkSidebarAwgSupervisor *supervisor)
-{
+gboolean network_sidebar_awg_supervisor_channel_closed(
+    const NetworkSidebarAwgSupervisor *supervisor) {
   return supervisor != NULL && supervisor->channel_closed;
 }
 
-gboolean
-network_sidebar_awg_supervisor_failed(
-  const NetworkSidebarAwgSupervisor *supervisor)
-{
+gboolean network_sidebar_awg_supervisor_failed(
+    const NetworkSidebarAwgSupervisor *supervisor) {
   return supervisor == NULL || supervisor->failed;
 }
 
-gboolean
-network_sidebar_awg_supervisor_groups_empty(
-  const NetworkSidebarAwgSupervisor *supervisor)
-{
-  return supervisor != NULL &&
-         g_hash_table_size(supervisor->owned_groups) == 0;
+gboolean network_sidebar_awg_supervisor_groups_empty(
+    const NetworkSidebarAwgSupervisor *supervisor) {
+  return supervisor != NULL && g_hash_table_size(supervisor->owned_groups) == 0;
 }

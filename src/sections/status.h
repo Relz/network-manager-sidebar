@@ -7,7 +7,8 @@
 
 G_BEGIN_DECLS
 
-void network_sidebar_add_status_group(GtkBox *content, NMClient *client, NetworkSidebarActions *actions);
+void network_sidebar_add_status_group(GtkBox *content, NMClient *client,
+                                      NetworkSidebarActions *actions);
 
 G_END_DECLS
 

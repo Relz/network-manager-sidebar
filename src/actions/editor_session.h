@@ -7,19 +7,19 @@ G_BEGIN_DECLS
 
 typedef struct _NetworkSidebarEditorSession NetworkSidebarEditorSession;
 typedef void (*NetworkSidebarEditorCompletedCallback)(const char *message,
-                                                       gpointer user_data);
+                                                      gpointer user_data);
 
 NetworkSidebarEditorSession *network_sidebar_editor_session_new(
-  NetworkSidebarEditorCompletedCallback completed,
-  gpointer user_data);
-NetworkSidebarEditorSession *network_sidebar_editor_session_ref(
-  NetworkSidebarEditorSession *session);
+    NetworkSidebarEditorCompletedCallback completed, gpointer user_data);
+NetworkSidebarEditorSession *
+network_sidebar_editor_session_ref(NetworkSidebarEditorSession *session);
 void network_sidebar_editor_session_unref(NetworkSidebarEditorSession *session);
-gboolean network_sidebar_editor_session_open(NetworkSidebarEditorSession *session,
-                                              const char *const *args,
-                                              GError **error);
+gboolean
+network_sidebar_editor_session_open(NetworkSidebarEditorSession *session,
+                                    const char *const *args, GError **error);
 /* Cancel supervision, not the external editor. Children are still reaped. */
-void network_sidebar_editor_session_cancel(NetworkSidebarEditorSession *session);
+void network_sidebar_editor_session_cancel(
+    NetworkSidebarEditorSession *session);
 /* Stop is terminal and must precede teardown of callback user_data. */
 void network_sidebar_editor_session_stop(NetworkSidebarEditorSession *session);
 

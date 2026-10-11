@@ -21,7 +21,8 @@ typedef enum {
 } AwgSubprocessCompletion;
 
 typedef struct {
-  /* Borrowed, already validated executable. The runner duplicates and pins it. */
+  /* Borrowed, already validated executable. The runner duplicates and pins it.
+   */
   int executable;
   const char *const *argv;
   const guint8 *input;
@@ -39,7 +40,8 @@ typedef struct {
 
 typedef struct {
   AwgSubprocessStatus status;
-  /* Conservative from fork onward, including failed registration/start gates. */
+  /* Conservative from fork onward, including failed registration/start gates.
+   */
   gboolean may_have_run;
   /* A waitpid-compatible status, valid only for AWG_SUBPROCESS_EXITED. */
   int wait_status;
@@ -52,8 +54,7 @@ typedef struct {
  * cleanup time inside the caller's absolute deadline. Output is optional,
  * bounded, and returned only on EXITED; free it with the secret-free helper. */
 AwgSubprocessResult awg_subprocess_run(const AwgSubprocessRequest *request,
-                                      gint64 outer_deadline,
-                                      guint8 **output,
-                                      gsize *output_length);
+                                       gint64 outer_deadline, guint8 **output,
+                                       gsize *output_length);
 
 #endif

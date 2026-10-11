@@ -7,11 +7,10 @@
 
 G_BEGIN_DECLS
 
-GtkWidget *network_sidebar_amneziawg_section_new(
-  NetworkSidebarAwgPresenter *presenter);
+GtkWidget *
+network_sidebar_amneziawg_section_new(NetworkSidebarAwgPresenter *presenter);
 void network_sidebar_amneziawg_section_update(
-  GtkWidget *section,
-  const NetworkSidebarAwgSnapshot *snapshot);
+    GtkWidget *section, const NetworkSidebarAwgSnapshot *snapshot);
 
 G_END_DECLS
 

@@ -11,8 +11,7 @@ typedef struct {
   int exit_status;
 } NetworkSidebarCliArgs;
 
-gboolean network_sidebar_cli_args_parse(int *argc,
-                                        char ***argv,
+gboolean network_sidebar_cli_args_parse(int *argc, char ***argv,
                                         NetworkSidebarCliArgs *args,
                                         GError **error);
 void network_sidebar_cli_args_clear(NetworkSidebarCliArgs *args);

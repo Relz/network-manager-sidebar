@@ -2,11 +2,8 @@
 
 #include <string.h>
 
-gboolean
-network_sidebar_amneziawg_ifindex_parse(const guint8 *data,
-                                         gsize length,
-                                         guint *ifindex)
-{
+gboolean network_sidebar_amneziawg_ifindex_parse(const guint8 *data,
+                                                 gsize length, guint *ifindex) {
   guint value = 0;
   gsize start = 0;
   gsize end = length;
@@ -36,9 +33,8 @@ network_sidebar_amneziawg_ifindex_parse(const guint8 *data,
   return TRUE;
 }
 
-const char *
-network_sidebar_amneziawg_dns_backend_name(NetworkSidebarAmneziaWGDnsBackend backend)
-{
+const char *network_sidebar_amneziawg_dns_backend_name(
+    NetworkSidebarAmneziaWGDnsBackend backend) {
   switch (backend) {
   case NETWORK_SIDEBAR_AMNEZIAWG_DNS_BACKEND_NONE:
     return "none";
@@ -51,9 +47,8 @@ network_sidebar_amneziawg_dns_backend_name(NetworkSidebarAmneziaWGDnsBackend bac
   }
 }
 
-const char *
-network_sidebar_amneziawg_journal_state_name(NetworkSidebarAmneziaWGJournalState state)
-{
+const char *network_sidebar_amneziawg_journal_state_name(
+    NetworkSidebarAmneziaWGJournalState state) {
   switch (state) {
   case NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_ACTIVATING:
     return "activating";
@@ -73,8 +68,7 @@ network_sidebar_amneziawg_journal_state_name(NetworkSidebarAmneziaWGJournalState
 }
 
 static const char *
-journal_dns_state_name(NetworkSidebarAmneziaWGJournalDnsState state)
-{
+journal_dns_state_name(NetworkSidebarAmneziaWGJournalDnsState state) {
   switch (state) {
   case NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_DNS_ABSENT:
     return "absent";
@@ -87,10 +81,8 @@ journal_dns_state_name(NetworkSidebarAmneziaWGJournalDnsState state)
   }
 }
 
-static gboolean
-runtime_marker_fields_are_valid(
-  const NetworkSidebarAmneziaWGRuntimeMarker *marker)
-{
+static gboolean runtime_marker_fields_are_valid(
+    const NetworkSidebarAmneziaWGRuntimeMarker *marker) {
   if (marker == NULL ||
       network_sidebar_amneziawg_journal_state_name(marker->state) == NULL ||
       network_sidebar_amneziawg_dns_backend_name(marker->dns_backend) == NULL ||
@@ -117,12 +109,9 @@ runtime_marker_fields_are_valid(
   return TRUE;
 }
 
-gboolean
-network_sidebar_amneziawg_runtime_marker_serialize(
-  const NetworkSidebarAmneziaWGRuntimeMarker *marker,
-  guint8 **data,
-  gsize *length)
-{
+gboolean network_sidebar_amneziawg_runtime_marker_serialize(
+    const NetworkSidebarAmneziaWGRuntimeMarker *marker, guint8 **data,
+    gsize *length) {
   const char *state;
   const char *backend;
   const char *dns_state;
@@ -136,30 +125,22 @@ network_sidebar_amneziawg_runtime_marker_serialize(
   dns_state = journal_dns_state_name(marker->dns_state);
   if (!runtime_marker_fields_are_valid(marker))
     return FALSE;
-  written = g_snprintf(buffer,
-                       sizeof(buffer),
+  written = g_snprintf(buffer, sizeof(buffer),
                        "state=%s\ntoken=%s\nifindex=%u\ndns=%s\n"
                        "was-active=%u\ndns-state=%s\nfirewall-scope=%u\n",
-                       state,
-                       marker->link_token,
-                       marker->ifindex,
-                       backend,
-                       marker->was_active ? 1u : 0u,
-                       dns_state,
+                       state, marker->link_token, marker->ifindex, backend,
+                       marker->was_active ? 1u : 0u, dns_state,
                        marker->firewall_scope);
-  if (written <= 0 || (gsize) written >= sizeof(buffer))
+  if (written <= 0 || (gsize)written >= sizeof(buffer))
     return FALSE;
-  *data = g_memdup2(buffer, (gsize) written);
-  *length = (gsize) written;
+  *data = g_memdup2(buffer, (gsize)written);
+  *length = (gsize)written;
   return TRUE;
 }
 
-gboolean
-network_sidebar_amneziawg_runtime_marker_parse(
-  const guint8 *data,
-  gsize length,
-  NetworkSidebarAmneziaWGRuntimeMarker *marker)
-{
+gboolean network_sidebar_amneziawg_runtime_marker_parse(
+    const guint8 *data, gsize length,
+    NetworkSidebarAmneziaWGRuntimeMarker *marker) {
   static const char state_prefix[] = "state=";
   const guint8 *state_start;
   const guint8 *state_end;
@@ -189,55 +170,57 @@ network_sidebar_amneziawg_runtime_marker_parse(
       memcmp(data, state_prefix, sizeof(state_prefix) - 1) != 0)
     return FALSE;
   state_start = data + sizeof(state_prefix) - 1;
-  state_end = memchr(state_start, '\n', length - (gsize) (state_start - data));
+  state_end = memchr(state_start, '\n', length - (gsize)(state_start - data));
   if (state_end == NULL)
     return FALSE;
-  if ((gsize) (state_end - state_start) == strlen("activating") &&
+  if ((gsize)(state_end - state_start) == strlen("activating") &&
       memcmp(state_start, "activating", strlen("activating")) == 0)
     state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_ACTIVATING;
-  else if ((gsize) (state_end - state_start) == strlen("active") &&
+  else if ((gsize)(state_end - state_start) == strlen("active") &&
            memcmp(state_start, "active", strlen("active")) == 0)
     state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_ACTIVE;
-  else if ((gsize) (state_end - state_start) == strlen("cleanup-required") &&
-           memcmp(state_start, "cleanup-required", strlen("cleanup-required")) == 0)
+  else if ((gsize)(state_end - state_start) == strlen("cleanup-required") &&
+           memcmp(state_start, "cleanup-required",
+                  strlen("cleanup-required")) == 0)
     state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_CLEANUP_REQUIRED;
-  else if ((gsize) (state_end - state_start) == strlen("cleanup-unconfirmed") &&
-           memcmp(state_start, "cleanup-unconfirmed", strlen("cleanup-unconfirmed")) == 0)
+  else if ((gsize)(state_end - state_start) == strlen("cleanup-unconfirmed") &&
+           memcmp(state_start, "cleanup-unconfirmed",
+                  strlen("cleanup-unconfirmed")) == 0)
     state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_CLEANUP_UNCONFIRMED;
-  else if ((gsize) (state_end - state_start) == strlen("cleanup-complete") &&
-           memcmp(state_start, "cleanup-complete", strlen("cleanup-complete")) == 0)
+  else if ((gsize)(state_end - state_start) == strlen("cleanup-complete") &&
+           memcmp(state_start, "cleanup-complete",
+                  strlen("cleanup-complete")) == 0)
     state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_CLEANUP_COMPLETE;
-  else if ((gsize) (state_end - state_start) == strlen("firewall-verification-pending") &&
+  else if ((gsize)(state_end - state_start) ==
+               strlen("firewall-verification-pending") &&
            memcmp(state_start, "firewall-verification-pending",
                   strlen("firewall-verification-pending")) == 0)
     state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_FIREWALL_PENDING;
   else
     return FALSE;
   token_start = state_end + 1;
-  if ((gsize) (data + length - token_start) <
-        sizeof("token=") - 1 + NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH + 1 ||
+  if ((gsize)(data + length - token_start) <
+          sizeof("token=") - 1 + NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH +
+              1 ||
       memcmp(token_start, "token=", sizeof("token=") - 1) != 0)
     return FALSE;
   token_start += sizeof("token=") - 1;
-  token_end = memchr(token_start,
-                     '\n',
-                     length - (gsize) (token_start - data));
-  if (token_end == NULL ||
-      (gsize) (token_end - token_start) !=
-        NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH)
+  token_end = memchr(token_start, '\n', length - (gsize)(token_start - data));
+  if (token_end == NULL || (gsize)(token_end - token_start) !=
+                               NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH)
     return FALSE;
-  memcpy(link_token,
-         token_start,
-         NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH);
+  memcpy(link_token, token_start, NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH);
   link_token[NETWORK_SIDEBAR_AMNEZIAWG_LINK_TOKEN_LENGTH] = '\0';
   if (!network_sidebar_amneziawg_link_token_is_valid(link_token))
     return FALSE;
 
   ifindex_start = token_end + 1;
-  if ((gsize) (data + length - ifindex_start) < 9 || memcmp(ifindex_start, "ifindex=", 8) != 0)
+  if ((gsize)(data + length - ifindex_start) < 9 ||
+      memcmp(ifindex_start, "ifindex=", 8) != 0)
     return FALSE;
   ifindex_start += 8;
-  ifindex_end = memchr(ifindex_start, '\n', length - (gsize) (ifindex_start - data));
+  ifindex_end =
+      memchr(ifindex_start, '\n', length - (gsize)(ifindex_start - data));
   if (ifindex_end == NULL)
     return FALSE;
   if (ifindex_start == ifindex_end) {
@@ -252,62 +235,59 @@ network_sidebar_amneziawg_runtime_marker_parse(
         return FALSE;
     }
     if (!network_sidebar_amneziawg_ifindex_parse(
-          ifindex_start, (gsize) (ifindex_end - ifindex_start), &ifindex))
+            ifindex_start, (gsize)(ifindex_end - ifindex_start), &ifindex))
       return FALSE;
   }
   dns_start = ifindex_end + 1;
-  if ((gsize) (data + length - dns_start) < 5 || memcmp(dns_start, "dns=", 4) != 0)
+  if ((gsize)(data + length - dns_start) < 5 ||
+      memcmp(dns_start, "dns=", 4) != 0)
     return FALSE;
   dns_start += 4;
-  dns_end = memchr(dns_start, '\n', length - (gsize) (dns_start - data));
+  dns_end = memchr(dns_start, '\n', length - (gsize)(dns_start - data));
   if (dns_end == NULL || dns_start == dns_end)
     return FALSE;
 
-  if ((gsize) (dns_end - dns_start) == strlen("none") &&
+  if ((gsize)(dns_end - dns_start) == strlen("none") &&
       memcmp(dns_start, "none", strlen("none")) == 0)
     backend = NETWORK_SIDEBAR_AMNEZIAWG_DNS_BACKEND_NONE;
-  else if ((gsize) (dns_end - dns_start) == strlen("resolved") &&
+  else if ((gsize)(dns_end - dns_start) == strlen("resolved") &&
            memcmp(dns_start, "resolved", strlen("resolved")) == 0)
     backend = NETWORK_SIDEBAR_AMNEZIAWG_DNS_BACKEND_RESOLVED;
-  else if ((gsize) (dns_end - dns_start) == strlen("resolvconf") &&
+  else if ((gsize)(dns_end - dns_start) == strlen("resolvconf") &&
            memcmp(dns_start, "resolvconf", strlen("resolvconf")) == 0)
     backend = NETWORK_SIDEBAR_AMNEZIAWG_DNS_BACKEND_RESOLVCONF;
   else
     return FALSE;
 
   was_active_start = dns_end + 1;
-  if ((gsize) (data + length - was_active_start) < sizeof("was-active=0\n") - 1 ||
-      memcmp(was_active_start,
-             "was-active=",
-             sizeof("was-active=") - 1) != 0)
+  if ((gsize)(data + length - was_active_start) <
+          sizeof("was-active=0\n") - 1 ||
+      memcmp(was_active_start, "was-active=", sizeof("was-active=") - 1) != 0)
     return FALSE;
   was_active_start += sizeof("was-active=") - 1;
-  was_active_end = memchr(was_active_start,
-                          '\n',
-                          length - (gsize) (was_active_start - data));
+  was_active_end =
+      memchr(was_active_start, '\n', length - (gsize)(was_active_start - data));
   if (was_active_end == NULL || was_active_end - was_active_start != 1 ||
       (was_active_start[0] != '0' && was_active_start[0] != '1'))
     return FALSE;
   was_active = was_active_start[0] == '1';
 
   dns_state_start = was_active_end + 1;
-  if ((gsize) (data + length - dns_state_start) < sizeof("dns-state=x\n") - 1 ||
-      memcmp(dns_state_start,
-             "dns-state=",
-             sizeof("dns-state=") - 1) != 0)
+  if ((gsize)(data + length - dns_state_start) < sizeof("dns-state=x\n") - 1 ||
+      memcmp(dns_state_start, "dns-state=", sizeof("dns-state=") - 1) != 0)
     return FALSE;
   dns_state_start += sizeof("dns-state=") - 1;
-  dns_state_end = memchr(dns_state_start, '\n',
-                         length - (gsize) (dns_state_start - data));
+  dns_state_end =
+      memchr(dns_state_start, '\n', length - (gsize)(dns_state_start - data));
   if (dns_state_end == NULL || dns_state_start >= dns_state_end)
     return FALSE;
-  if ((gsize) (dns_state_end - dns_state_start) == strlen("absent") &&
+  if ((gsize)(dns_state_end - dns_state_start) == strlen("absent") &&
       memcmp(dns_state_start, "absent", strlen("absent")) == 0)
     dns_state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_DNS_ABSENT;
-  else if ((gsize) (dns_state_end - dns_state_start) == strlen("applied") &&
+  else if ((gsize)(dns_state_end - dns_state_start) == strlen("applied") &&
            memcmp(dns_state_start, "applied", strlen("applied")) == 0)
     dns_state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_DNS_APPLIED;
-  else if ((gsize) (dns_state_end - dns_state_start) == strlen("unknown") &&
+  else if ((gsize)(dns_state_end - dns_state_start) == strlen("unknown") &&
            memcmp(dns_state_start, "unknown", strlen("unknown")) == 0)
     dns_state = NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_DNS_UNKNOWN;
   else
@@ -315,8 +295,10 @@ network_sidebar_amneziawg_runtime_marker_parse(
 
   /* Missing scope is not evidence that the old session used no firewall. */
   firewall_start = dns_state_end + 1;
-  if ((gsize) (data + length - firewall_start) < sizeof("firewall-scope=0\n") - 1 ||
-      memcmp(firewall_start, "firewall-scope=", sizeof("firewall-scope=") - 1) != 0)
+  if ((gsize)(data + length - firewall_start) <
+          sizeof("firewall-scope=0\n") - 1 ||
+      memcmp(firewall_start,
+             "firewall-scope=", sizeof("firewall-scope=") - 1) != 0)
     return FALSE;
   firewall_start += sizeof("firewall-scope=") - 1;
   firewall_end = data + length - 1;
@@ -329,13 +311,13 @@ network_sidebar_amneziawg_runtime_marker_parse(
     firewall_scope = firewall_scope * 10 + (*cursor - '0');
   }
 
-  parsed = (NetworkSidebarAmneziaWGRuntimeMarker) {
-    .ifindex = ifindex,
-    .dns_backend = backend,
-    .state = state,
-    .dns_state = dns_state,
-    .was_active = was_active,
-    .firewall_scope = firewall_scope,
+  parsed = (NetworkSidebarAmneziaWGRuntimeMarker){
+      .ifindex = ifindex,
+      .dns_backend = backend,
+      .state = state,
+      .dns_state = dns_state,
+      .was_active = was_active,
+      .firewall_scope = firewall_scope,
   };
   g_strlcpy(parsed.link_token, link_token, sizeof(parsed.link_token));
   if (!runtime_marker_fields_are_valid(&parsed))
@@ -346,15 +328,13 @@ network_sidebar_amneziawg_runtime_marker_parse(
 
 NetworkSidebarAmneziaWGRuntimeState
 network_sidebar_amneziawg_runtime_state_classify(
-  gboolean marker_exists,
-  gboolean marker_valid,
-  const NetworkSidebarAmneziaWGRuntimeMarker *marker,
-  const NetworkSidebarAmneziaWGLinkObservation *observation)
-{
+    gboolean marker_exists, gboolean marker_valid,
+    const NetworkSidebarAmneziaWGRuntimeMarker *marker,
+    const NetworkSidebarAmneziaWGLinkObservation *observation) {
   if (!marker_exists)
-    return observation != NULL && observation->named_exists ?
-      NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFLICT :
-      NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_INACTIVE;
+    return observation != NULL && observation->named_exists
+               ? NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFLICT
+               : NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_INACTIVE;
   if (!marker_valid || marker == NULL || observation == NULL)
     return NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_MANUAL_INTERVENTION;
   if (marker->state == NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_CLEANUP_UNCONFIRMED ||
@@ -367,18 +347,18 @@ network_sidebar_amneziawg_runtime_state_classify(
     if (observation->named_exists)
       return NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFLICT;
     if (marker->state == NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_FIREWALL_PENDING)
-      return marker->dns_state == NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_DNS_ABSENT &&
-             !marker->was_active ?
-        NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_FIREWALL_PENDING :
-        NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_MANUAL_INTERVENTION;
+      return marker->dns_state ==
+                         NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_DNS_ABSENT &&
+                     !marker->was_active
+                 ? NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_FIREWALL_PENDING
+                 : NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_MANUAL_INTERVENTION;
     if (marker->state == NETWORK_SIDEBAR_AMNEZIAWG_JOURNAL_CLEANUP_COMPLETE)
       return NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_RECOVERY_REQUIRED;
     return NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_MANUAL_INTERVENTION;
   }
   if ((observation->named_exists &&
        observation->named_ifindex != observation->token_ifindex) ||
-      (marker->ifindex != 0 &&
-       marker->ifindex != observation->token_ifindex))
+      (marker->ifindex != 0 && marker->ifindex != observation->token_ifindex))
     return NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFLICT;
   if (!observation->token_has_expected_name)
     return NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_MANUAL_INTERVENTION;
@@ -391,10 +371,8 @@ network_sidebar_amneziawg_runtime_state_classify(
   return NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_ACTIVE;
 }
 
-gboolean
-network_sidebar_amneziawg_runtime_state_is_recoverable(
-  NetworkSidebarAmneziaWGRuntimeState state)
-{
+gboolean network_sidebar_amneziawg_runtime_state_is_recoverable(
+    NetworkSidebarAmneziaWGRuntimeState state) {
   return state == NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_RECOVERY_REQUIRED ||
          state == NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_FIREWALL_PENDING;
 }

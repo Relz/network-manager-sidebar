@@ -2,9 +2,7 @@
 
 #include <string.h>
 
-static void
-append_codepoint_escape(GString *result, gunichar ch)
-{
+static void append_codepoint_escape(GString *result, gunichar ch) {
   if (ch <= 0xff)
     g_string_append_printf(result, "\\x%02x", ch);
   else if (ch <= 0xffff)
@@ -13,21 +11,16 @@ append_codepoint_escape(GString *result, gunichar ch)
     g_string_append_printf(result, "\\U%08x", ch);
 }
 
-static gboolean
-unicode_category_hidden(GUnicodeType type)
-{
-  return type == G_UNICODE_CONTROL ||
-         type == G_UNICODE_FORMAT ||
-         type == G_UNICODE_UNASSIGNED ||
-         type == G_UNICODE_PRIVATE_USE ||
-         type == G_UNICODE_SURROGATE ||
-         type == G_UNICODE_LINE_SEPARATOR ||
+static gboolean unicode_category_hidden(GUnicodeType type) {
+  return type == G_UNICODE_CONTROL || type == G_UNICODE_FORMAT ||
+         type == G_UNICODE_UNASSIGNED || type == G_UNICODE_PRIVATE_USE ||
+         type == G_UNICODE_SURROGATE || type == G_UNICODE_LINE_SEPARATOR ||
          type == G_UNICODE_PARAGRAPH_SEPARATOR;
 }
 
-static gboolean
-next_utf8_char_allow_nul(const char *p, const char *end, gunichar *out_ch, const char **out_next)
-{
+static gboolean next_utf8_char_allow_nul(const char *p, const char *end,
+                                         gunichar *out_ch,
+                                         const char **out_next) {
   gunichar ch;
 
   if (p >= end)
@@ -39,23 +32,22 @@ next_utf8_char_allow_nul(const char *p, const char *end, gunichar *out_ch, const
   }
 
   ch = g_utf8_get_char_validated(p, end - p);
-  if (ch == (gunichar) -1 || ch == (gunichar) -2)
+  if (ch == (gunichar)-1 || ch == (gunichar)-2)
     return FALSE;
   *out_ch = ch;
   *out_next = g_utf8_next_char(p);
   return TRUE;
 }
 
-static gboolean
-utf8_bytes_validate_allow_nul(const guint8 *bytes, gsize length)
-{
+static gboolean utf8_bytes_validate_allow_nul(const guint8 *bytes,
+                                              gsize length) {
   const char *start;
   const char *end;
 
   if (bytes == NULL && length > 0)
     return FALSE;
 
-  start = (const char *) bytes;
+  start = (const char *)bytes;
   end = start + length;
   for (const char *p = start; p < end;) {
     gunichar ch;
@@ -63,15 +55,14 @@ utf8_bytes_validate_allow_nul(const guint8 *bytes, gsize length)
 
     if (!next_utf8_char_allow_nul(p, end, &ch, &next))
       return FALSE;
-    (void) ch;
+    (void)ch;
     p = next;
   }
   return TRUE;
 }
 
-static char *
-display_text_bytes(const guint8 *bytes, gsize length, const char *fallback)
-{
+static char *display_text_bytes(const guint8 *bytes, gsize length,
+                                const char *fallback) {
   g_autoptr(GString) result = NULL;
   const char *start;
   const char *end;
@@ -84,7 +75,7 @@ display_text_bytes(const guint8 *bytes, gsize length, const char *fallback)
   if (!utf8_bytes_validate_allow_nul(bytes, length))
     return g_strdup(fallback != NULL ? fallback : "Unknown");
 
-  start = (const char *) bytes;
+  start = (const char *)bytes;
   end = start + length;
   for (p = start; p < end;) {
     gunichar ch;
@@ -113,7 +104,8 @@ display_text_bytes(const guint8 *bytes, gsize length, const char *fallback)
     if (!next_utf8_char_allow_nul(p, end, &ch, &next))
       return g_strdup(fallback != NULL ? fallback : "Unknown");
     type = g_unichar_type(ch);
-    edge_space = g_unichar_isspace(ch) && (p < first_non_space || p > last_non_space);
+    edge_space =
+        g_unichar_isspace(ch) && (p < first_non_space || p > last_non_space);
 
     if (ch == '\0')
       g_string_append(result, "\\x00");
@@ -133,11 +125,9 @@ display_text_bytes(const guint8 *bytes, gsize length, const char *fallback)
   return g_string_free(g_steal_pointer(&result), FALSE);
 }
 
-static char *
-ssid_whitespace_text(const guint8 *bytes, gsize length)
-{
+static char *ssid_whitespace_text(const guint8 *bytes, gsize length) {
   g_autoptr(GString) result = g_string_new(NULL);
-  const char *start = (const char *) bytes;
+  const char *start = (const char *)bytes;
   const char *end = start + length;
 
   for (const char *p = start; p < end;) {
@@ -157,9 +147,7 @@ ssid_whitespace_text(const guint8 *bytes, gsize length)
   return g_string_free(g_steal_pointer(&result), FALSE);
 }
 
-static char *
-title_from_nick(const char *nick, const char *fallback)
-{
+static char *title_from_nick(const char *nick, const char *fallback) {
   g_auto(GStrv) parts = NULL;
   g_autoptr(GString) result = NULL;
   g_autofree char *normalized = NULL;
@@ -215,9 +203,7 @@ title_from_nick(const char *nick, const char *fallback)
   return g_string_free(g_steal_pointer(&result), FALSE);
 }
 
-static char *
-title_case_words(const char *value, const char *fallback)
-{
+static char *title_case_words(const char *value, const char *fallback) {
   g_auto(GStrv) parts = NULL;
   g_autoptr(GString) result = NULL;
   g_autofree char *normalized = NULL;
@@ -247,44 +233,40 @@ title_case_words(const char *value, const char *fallback)
   return g_string_free(g_steal_pointer(&result), FALSE);
 }
 
-char *
-network_sidebar_display_text(const char *value, const char *fallback)
-{
+char *network_sidebar_display_text(const char *value, const char *fallback) {
   if (value == NULL)
     return g_strdup(fallback != NULL ? fallback : "Unknown");
-  return display_text_bytes((const guint8 *) value, strlen(value), fallback);
+  return display_text_bytes((const guint8 *)value, strlen(value), fallback);
 }
 
-char *
-network_sidebar_enum_label(GType enum_type, int value, const char *fallback)
-{
+char *network_sidebar_enum_label(GType enum_type, int value,
+                                 const char *fallback) {
   GEnumClass *enum_class = g_type_class_ref(enum_type);
   GEnumValue *enum_value = NULL;
   char *label;
 
   if (enum_class != NULL)
     enum_value = g_enum_get_value(enum_class, value);
-  label = title_from_nick(enum_value != NULL ? enum_value->value_nick : NULL, fallback);
+  label = title_from_nick(enum_value != NULL ? enum_value->value_nick : NULL,
+                          fallback);
   if (enum_class != NULL)
     g_type_class_unref(enum_class);
   return label;
 }
 
-char *
-network_sidebar_connection_name(NMConnection *connection, const char *fallback)
-{
-  return network_sidebar_display_text(connection != NULL ? nm_connection_get_id(connection) : NULL, fallback);
+char *network_sidebar_connection_name(NMConnection *connection,
+                                      const char *fallback) {
+  return network_sidebar_display_text(
+      connection != NULL ? nm_connection_get_id(connection) : NULL, fallback);
 }
 
-char *
-network_sidebar_active_connection_name(NMActiveConnection *active, const char *fallback)
-{
-  return network_sidebar_display_text(active != NULL ? nm_active_connection_get_id(active) : NULL, fallback);
+char *network_sidebar_active_connection_name(NMActiveConnection *active,
+                                             const char *fallback) {
+  return network_sidebar_display_text(
+      active != NULL ? nm_active_connection_get_id(active) : NULL, fallback);
 }
 
-char *
-network_sidebar_connection_type_label(const char *connection_type)
-{
+char *network_sidebar_connection_type_label(const char *connection_type) {
   if (g_strcmp0(connection_type, NM_SETTING_WIRED_SETTING_NAME) == 0)
     return g_strdup("Ethernet");
   if (g_strcmp0(connection_type, NM_SETTING_WIRELESS_SETTING_NAME) == 0)
@@ -310,37 +292,30 @@ network_sidebar_connection_type_label(const char *connection_type)
   return title_case_words(connection_type, "Unknown");
 }
 
-char *
-network_sidebar_device_type_label(NMDeviceType device_type)
-{
+char *network_sidebar_device_type_label(NMDeviceType device_type) {
   if (device_type == NM_DEVICE_TYPE_ETHERNET)
     return g_strdup("Ethernet");
   if (device_type == NM_DEVICE_TYPE_WIFI)
     return g_strdup("Wi-Fi");
-  return network_sidebar_enum_label(NM_TYPE_DEVICE_TYPE, device_type, "Unknown");
+  return network_sidebar_enum_label(NM_TYPE_DEVICE_TYPE, device_type,
+                                    "Unknown");
 }
 
-char *
-network_sidebar_device_state_label(NMDeviceState state)
-{
+char *network_sidebar_device_state_label(NMDeviceState state) {
   return network_sidebar_enum_label(NM_TYPE_DEVICE_STATE, state, "Unknown");
 }
 
-char *
-network_sidebar_active_state_label(NMActiveConnectionState state)
-{
-  return network_sidebar_enum_label(NM_TYPE_ACTIVE_CONNECTION_STATE, state, "Unknown");
+char *network_sidebar_active_state_label(NMActiveConnectionState state) {
+  return network_sidebar_enum_label(NM_TYPE_ACTIVE_CONNECTION_STATE, state,
+                                    "Unknown");
 }
 
-char *
-network_sidebar_vpn_state_label(NMVpnConnectionState state)
-{
-  return network_sidebar_enum_label(NM_TYPE_VPN_CONNECTION_STATE, state, "Unknown");
+char *network_sidebar_vpn_state_label(NMVpnConnectionState state) {
+  return network_sidebar_enum_label(NM_TYPE_VPN_CONNECTION_STATE, state,
+                                    "Unknown");
 }
 
-static char *
-hex_bytes(const guint8 *bytes, gsize length)
-{
+static char *hex_bytes(const guint8 *bytes, gsize length) {
   g_autoptr(GString) hex = g_string_new(NULL);
 
   for (gsize i = 0; i < length; i++) {
@@ -351,9 +326,7 @@ hex_bytes(const guint8 *bytes, gsize length)
   return g_string_free(g_steal_pointer(&hex), FALSE);
 }
 
-char *
-network_sidebar_ssid_text_from_bytes(GBytes *ssid)
-{
+char *network_sidebar_ssid_text_from_bytes(GBytes *ssid) {
   const guint8 *bytes;
   gsize length = 0;
 
@@ -368,7 +341,9 @@ network_sidebar_ssid_text_from_bytes(GBytes *ssid)
       if (!utf8_bytes_validate_allow_nul(bytes, length)) {
         g_autofree char *hex = hex_bytes(bytes, length);
         g_autofree char *safe = network_sidebar_display_text(nm_text, "");
-        return g_strdup_printf("%s (hex: %s)", safe != NULL && *safe != '\0' ? safe : nm_text, hex);
+        return g_strdup_printf("%s (hex: %s)",
+                               safe != NULL && *safe != '\0' ? safe : nm_text,
+                               hex);
       }
     }
   }
@@ -384,17 +359,13 @@ network_sidebar_ssid_text_from_bytes(GBytes *ssid)
   }
 }
 
-char *
-network_sidebar_ap_ssid_text(NMAccessPoint *ap)
-{
+char *network_sidebar_ap_ssid_text(NMAccessPoint *ap) {
   if (ap == NULL)
     return g_strdup("Hidden network");
   return network_sidebar_ssid_text_from_bytes(nm_access_point_get_ssid(ap));
 }
 
-char *
-network_sidebar_ap_security_label(NMAccessPoint *ap)
-{
+char *network_sidebar_ap_security_label(NMAccessPoint *ap) {
   NM80211ApFlags flags;
   NM80211ApSecurityFlags wpa;
   NM80211ApSecurityFlags rsn;
@@ -415,7 +386,9 @@ network_sidebar_ap_security_label(NMAccessPoint *ap)
   if (security & NM_802_11_AP_SEC_KEY_MGMT_OWE)
     return g_strdup("Enhanced Open");
   if (security & NM_802_11_AP_SEC_KEY_MGMT_SAE)
-    return g_strdup((security & NM_802_11_AP_SEC_KEY_MGMT_PSK) ? "WPA2/3 Personal" : "WPA3 Personal");
+    return g_strdup((security & NM_802_11_AP_SEC_KEY_MGMT_PSK)
+                        ? "WPA2/3 Personal"
+                        : "WPA3 Personal");
   if (security & NM_802_11_AP_SEC_KEY_MGMT_PSK) {
     if (has_rsn && has_wpa)
       return g_strdup("WPA/WPA2 Personal");
@@ -423,7 +396,9 @@ network_sidebar_ap_security_label(NMAccessPoint *ap)
   }
 #ifdef NM_802_11_AP_SEC_KEY_MGMT_EAP_SUITE_B_192
   if (security & NM_802_11_AP_SEC_KEY_MGMT_EAP_SUITE_B_192)
-    return g_strdup((security & NM_802_11_AP_SEC_KEY_MGMT_802_1X) ? "WPA2/3 Enterprise" : "WPA3 Enterprise");
+    return g_strdup((security & NM_802_11_AP_SEC_KEY_MGMT_802_1X)
+                        ? "WPA2/3 Enterprise"
+                        : "WPA3 Enterprise");
 #endif
   if (security & NM_802_11_AP_SEC_KEY_MGMT_802_1X) {
     if (has_rsn && has_wpa)
@@ -441,9 +416,7 @@ network_sidebar_ap_security_label(NMAccessPoint *ap)
   return g_strdup("Open");
 }
 
-static void
-append_profile_detail(GString *details, const char *detail)
-{
+static void append_profile_detail(GString *details, const char *detail) {
   if (detail == NULL || *detail == '\0')
     return;
   if (details->len > 0)
@@ -451,15 +424,19 @@ append_profile_detail(GString *details, const char *detail)
   g_string_append(details, detail);
 }
 
-char *
-network_sidebar_wifi_profile_subtitle(NMRemoteConnection *connection)
-{
+char *network_sidebar_wifi_profile_subtitle(NMRemoteConnection *connection) {
   g_autoptr(GString) details = g_string_new(NULL);
-  NMSettingWireless *wireless = nm_connection_get_setting_wireless(NM_CONNECTION(connection));
-  NMSettingWirelessSecurity *security = nm_connection_get_setting_wireless_security(NM_CONNECTION(connection));
-  NMSettingConnection *setting_connection = nm_connection_get_setting_connection(NM_CONNECTION(connection));
+  NMSettingWireless *wireless =
+      nm_connection_get_setting_wireless(NM_CONNECTION(connection));
+  NMSettingWirelessSecurity *security =
+      nm_connection_get_setting_wireless_security(NM_CONNECTION(connection));
+  NMSettingConnection *setting_connection =
+      nm_connection_get_setting_connection(NM_CONNECTION(connection));
   const char *connection_id = nm_connection_get_id(NM_CONNECTION(connection));
-  g_autofree char *connection_name = connection_id != NULL && *connection_id != '\0' ? network_sidebar_display_text(connection_id, "") : NULL;
+  g_autofree char *connection_name =
+      connection_id != NULL && *connection_id != '\0'
+          ? network_sidebar_display_text(connection_id, "")
+          : NULL;
 
   if (wireless != NULL) {
     GBytes *ssid = nm_setting_wireless_get_ssid(wireless);
@@ -492,16 +469,19 @@ network_sidebar_wifi_profile_subtitle(NMRemoteConnection *connection)
   }
 
   if (security != NULL) {
-    g_autofree char *security_label = network_sidebar_wifi_key_mgmt_label(nm_setting_wireless_security_get_key_mgmt(security));
+    g_autofree char *security_label = network_sidebar_wifi_key_mgmt_label(
+        nm_setting_wireless_security_get_key_mgmt(security));
     append_profile_detail(details, security_label);
   } else {
     append_profile_detail(details, "Open");
   }
 
   if (setting_connection != NULL) {
-    const char *interface_name = nm_setting_connection_get_interface_name(setting_connection);
+    const char *interface_name =
+        nm_setting_connection_get_interface_name(setting_connection);
     if (interface_name != NULL && *interface_name != '\0') {
-      g_autofree char *interface_detail = g_strdup_printf("Interface %s", interface_name);
+      g_autofree char *interface_detail =
+          g_strdup_printf("Interface %s", interface_name);
       append_profile_detail(details, interface_detail);
     }
     if (!nm_setting_connection_get_autoconnect(setting_connection))
@@ -513,13 +493,12 @@ network_sidebar_wifi_profile_subtitle(NMRemoteConnection *connection)
 
   {
     const char *uuid = nm_connection_get_uuid(NM_CONNECTION(connection));
-    return uuid != NULL && *uuid != '\0' ? g_strdup_printf("UUID %s", uuid) : g_strdup("");
+    return uuid != NULL && *uuid != '\0' ? g_strdup_printf("UUID %s", uuid)
+                                         : g_strdup("");
   }
 }
 
-char *
-network_sidebar_wifi_key_mgmt_label(const char *key_mgmt)
-{
+char *network_sidebar_wifi_key_mgmt_label(const char *key_mgmt) {
   g_autofree char *normalized = NULL;
 
   if (key_mgmt == NULL || *key_mgmt == '\0')
@@ -544,9 +523,7 @@ network_sidebar_wifi_key_mgmt_label(const char *key_mgmt)
   return g_utf8_strup(normalized, -1);
 }
 
-char *
-network_sidebar_frequency_label(guint32 mhz)
-{
+char *network_sidebar_frequency_label(guint32 mhz) {
   if (mhz == 0)
     return g_strdup("Unknown band");
   if (mhz >= 5925 && mhz <= 7125)
@@ -558,9 +535,7 @@ network_sidebar_frequency_label(guint32 mhz)
   return g_strdup_printf("%u MHz", mhz);
 }
 
-const char *
-network_sidebar_signal_icon(guint8 strength)
-{
+const char *network_sidebar_signal_icon(guint8 strength) {
   if (strength >= 80)
     return "network-wireless-signal-excellent-symbolic";
   if (strength >= 60)

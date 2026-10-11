@@ -61,19 +61,19 @@ typedef struct {
 
 /* Pure policy: no profile reads, runtime refreshes, UI, or service calls. */
 NetworkSidebarAwgAction network_sidebar_awg_primary_action(
-  NetworkSidebarAmneziaWGRuntimeState runtime_state);
+    NetworkSidebarAmneziaWGRuntimeState runtime_state);
 NetworkSidebarAwgActionAvailability network_sidebar_awg_action_evaluate(
-  NetworkSidebarAwgAction action,
-  const NetworkSidebarAwgAdmissionContext *context,
-  const NetworkSidebarAwgAdmissionTarget *target);
+    NetworkSidebarAwgAction action,
+    const NetworkSidebarAwgAdmissionContext *context,
+    const NetworkSidebarAwgAdmissionTarget *target);
 /* Dispatch rechecks current capabilities. An already admitted firewall-only
  * Down retains its tool exemption if its cached runtime observation expires;
  * the privileged helper still validates the durable phase and link identity. */
 NetworkSidebarAwgDependency network_sidebar_awg_action_missing_dependencies(
-  NetworkSidebarAwgAction action,
-  const NetworkSidebarAwgAdmissionContext *context,
-  const NetworkSidebarAwgAdmissionTarget *target,
-  gboolean runtime_cleanup_only);
+    NetworkSidebarAwgAction action,
+    const NetworkSidebarAwgAdmissionContext *context,
+    const NetworkSidebarAwgAdmissionTarget *target,
+    gboolean runtime_cleanup_only);
 
 G_END_DECLS
 

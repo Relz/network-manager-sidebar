@@ -42,34 +42,31 @@ typedef struct {
 } NetworkSidebarAwgBackendCallbacks;
 
 typedef void (*NetworkSidebarAwgBackendResultCallback)(
-  /* The result and profile records are borrowed for this callback. */
-  const NetworkSidebarAwgBackendResult *result,
-  gpointer user_data);
+    /* The result and profile records are borrowed for this callback. */
+    const NetworkSidebarAwgBackendResult *result, gpointer user_data);
 
 NetworkSidebarAwgBackend *network_sidebar_awg_backend_new(
-  const NetworkSidebarAwgBackendCallbacks *callbacks,
-  gpointer user_data);
-NetworkSidebarAwgBackend *network_sidebar_awg_backend_ref(
-  NetworkSidebarAwgBackend *backend);
+    const NetworkSidebarAwgBackendCallbacks *callbacks, gpointer user_data);
+NetworkSidebarAwgBackend *
+network_sidebar_awg_backend_ref(NetworkSidebarAwgBackend *backend);
 void network_sidebar_awg_backend_unref(NetworkSidebarAwgBackend *backend);
 
 void network_sidebar_awg_backend_start(NetworkSidebarAwgBackend *backend);
 void network_sidebar_awg_backend_stop(NetworkSidebarAwgBackend *backend);
 void network_sidebar_awg_backend_invalidate_authorization(
-  NetworkSidebarAwgBackend *backend);
+    NetworkSidebarAwgBackend *backend);
 
 /* One client deadline covers bus acquisition and the method call. The result is
- * delivered once on the calling context even if transport completion is late. */
+ * delivered once on the calling context even if transport completion is late.
+ */
 void network_sidebar_awg_backend_execute(
-  NetworkSidebarAwgBackend *backend,
-  NetworkSidebarAwgBackendOperation operation,
-  const char *name,
-  GBytes *config,
-  /* Cancels this client's wait, not an already dispatched service operation.
-   * The backend never cancels this caller-owned token. */
-  GCancellable *cancellable,
-  NetworkSidebarAwgBackendResultCallback callback,
-  gpointer user_data);
+    NetworkSidebarAwgBackend *backend,
+    NetworkSidebarAwgBackendOperation operation, const char *name,
+    GBytes *config,
+    /* Cancels this client's wait, not an already dispatched service operation.
+     * The backend never cancels this caller-owned token. */
+    GCancellable *cancellable, NetworkSidebarAwgBackendResultCallback callback,
+    gpointer user_data);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(NetworkSidebarAwgBackend,
                               network_sidebar_awg_backend_unref)

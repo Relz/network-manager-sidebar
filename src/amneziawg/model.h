@@ -84,76 +84,60 @@ typedef struct {
   gboolean interface_exists;
 } NetworkSidebarAwgRuntimeRecord;
 
-NetworkSidebarAwgProfileRecord *network_sidebar_awg_profile_record_new(
-  const char *name,
-  guint status);
+NetworkSidebarAwgProfileRecord *
+network_sidebar_awg_profile_record_new(const char *name, guint status);
 void network_sidebar_awg_profile_record_free(
-  NetworkSidebarAwgProfileRecord *record);
+    NetworkSidebarAwgProfileRecord *record);
 NetworkSidebarAwgRuntimeRecord *network_sidebar_awg_runtime_record_new(
-  const char *name,
-  NetworkSidebarAmneziaWGRuntimeState state,
-  gboolean interface_exists);
+    const char *name, NetworkSidebarAmneziaWGRuntimeState state,
+    gboolean interface_exists);
 void network_sidebar_awg_runtime_record_free(
-  NetworkSidebarAwgRuntimeRecord *record);
+    NetworkSidebarAwgRuntimeRecord *record);
 
 NetworkSidebarAwgModel *network_sidebar_awg_model_new(void);
 void network_sidebar_awg_model_free(NetworkSidebarAwgModel *model);
 
-gboolean network_sidebar_awg_model_replace_profiles(
-  NetworkSidebarAwgModel *model,
-  const GPtrArray *profiles);
+gboolean
+network_sidebar_awg_model_replace_profiles(NetworkSidebarAwgModel *model,
+                                           const GPtrArray *profiles);
 /* Record a service-confirmed import/replacement until the next inventory. */
-void network_sidebar_awg_model_record_import(
-  NetworkSidebarAwgModel *model,
-  const char *name);
+void network_sidebar_awg_model_record_import(NetworkSidebarAwgModel *model,
+                                             const char *name);
 /* Record a service-confirmed deletion until the next inventory. */
-void network_sidebar_awg_model_record_delete(
-  NetworkSidebarAwgModel *model,
-  const char *name);
+void network_sidebar_awg_model_record_delete(NetworkSidebarAwgModel *model,
+                                             const char *name);
 void network_sidebar_awg_model_reset_profiles(NetworkSidebarAwgModel *model);
-gboolean network_sidebar_awg_model_has_profile_data(
-  const NetworkSidebarAwgModel *model);
+gboolean
+network_sidebar_awg_model_has_profile_data(const NetworkSidebarAwgModel *model);
 gboolean network_sidebar_awg_model_get_profile_status(
-  const NetworkSidebarAwgModel *model,
-  const char *name,
-  NetworkSidebarAmneziaWGProfileStatus *status);
+    const NetworkSidebarAwgModel *model, const char *name,
+    NetworkSidebarAmneziaWGProfileStatus *status);
 GPtrArray *network_sidebar_awg_model_dup_profile_names(
-  const NetworkSidebarAwgModel *model);
+    const NetworkSidebarAwgModel *model);
 
 void network_sidebar_awg_model_set_inventory_valid(
-  NetworkSidebarAwgModel *model,
-  gboolean valid);
+    NetworkSidebarAwgModel *model, gboolean valid);
 void network_sidebar_awg_model_set_profiles_warning(
-  NetworkSidebarAwgModel *model,
-  NetworkSidebarAwgProfileWarningKind kind,
-  guint helper_status);
+    NetworkSidebarAwgModel *model, NetworkSidebarAwgProfileWarningKind kind,
+    guint helper_status);
 void network_sidebar_awg_model_set_stale_profiles_warning(
-  NetworkSidebarAwgModel *model,
-  NetworkSidebarAwgProfileWarningKind kind,
-  guint helper_status);
+    NetworkSidebarAwgModel *model, NetworkSidebarAwgProfileWarningKind kind,
+    guint helper_status);
 
 /* Capture existing sessions before beginning Up; rebuilds retain their
  * progress ownership until the activity ends or authorization is lost. */
 void network_sidebar_awg_model_begin_switch(NetworkSidebarAwgModel *model);
 void network_sidebar_awg_model_rebuild_entries(
-  NetworkSidebarAwgModel *model,
-  gboolean authorized,
-  const GPtrArray *runtime_records,
-  gboolean runtime_pending,
-  NetworkSidebarAwgActivity activity,
-  const char *activity_name);
+    NetworkSidebarAwgModel *model, gboolean authorized,
+    const GPtrArray *runtime_records, gboolean runtime_pending,
+    NetworkSidebarAwgActivity activity, const char *activity_name);
 NetworkSidebarAwgSnapshot *network_sidebar_awg_model_dup_snapshot(
-  const NetworkSidebarAwgModel *model,
-  guint64 generation,
-  gboolean authorized,
-  gboolean capabilities_known,
-  NetworkSidebarAwgDependency missing_dependencies,
-  NetworkSidebarAwgActivity activity,
-  const char *activity_name,
-  gboolean inventory_pending,
-  gboolean runtime_pending,
-  gboolean inventory_loading,
-  gboolean runtime_loading);
+    const NetworkSidebarAwgModel *model, guint64 generation,
+    gboolean authorized, gboolean capabilities_known,
+    NetworkSidebarAwgDependency missing_dependencies,
+    NetworkSidebarAwgActivity activity, const char *activity_name,
+    gboolean inventory_pending, gboolean runtime_pending,
+    gboolean inventory_loading, gboolean runtime_loading);
 void network_sidebar_awg_snapshot_free(NetworkSidebarAwgSnapshot *snapshot);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(NetworkSidebarAwgModel,

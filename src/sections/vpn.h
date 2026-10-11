@@ -8,8 +8,9 @@
 
 G_BEGIN_DECLS
 
-GtkWidget *network_sidebar_vpn_section_new(NetworkSidebarActions *actions,
-                                           NetworkSidebarProfileEditorPresenter *editor_presenter);
+GtkWidget *network_sidebar_vpn_section_new(
+    NetworkSidebarActions *actions,
+    NetworkSidebarProfileEditorPresenter *editor_presenter);
 void network_sidebar_vpn_section_update(GtkWidget *section, NMClient *client);
 
 G_END_DECLS

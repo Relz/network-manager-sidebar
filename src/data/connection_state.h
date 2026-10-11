@@ -13,9 +13,12 @@ typedef enum {
   NETWORK_SIDEBAR_ROW_STATE_DISCONNECTED,
 } NetworkSidebarRowState;
 
-NetworkSidebarRowState network_sidebar_connection_row_state(NMActiveConnection *active);
-NetworkSidebarRowState network_sidebar_device_row_state(NMDevice *device, NMActiveConnection *active);
-NetworkSidebarRowState network_sidebar_vpn_row_state(NMActiveConnection *active);
+NetworkSidebarRowState
+network_sidebar_connection_row_state(NMActiveConnection *active);
+NetworkSidebarRowState
+network_sidebar_device_row_state(NMDevice *device, NMActiveConnection *active);
+NetworkSidebarRowState
+network_sidebar_vpn_row_state(NMActiveConnection *active);
 
 G_END_DECLS
 

@@ -1,9 +1,7 @@
 #include "gui/amneziawg_messages.h"
 
-const char *
-network_sidebar_awg_message_for_action_blocked(
-  const NetworkSidebarAwgActionAvailability *availability)
-{
+const char *network_sidebar_awg_message_for_action_blocked(
+    const NetworkSidebarAwgActionAvailability *availability) {
   switch (availability->blocked_reason) {
   case NETWORK_SIDEBAR_AWG_ACTION_BLOCKED_AUTHORIZATION:
     return "AmneziaWG authorization is unavailable";
@@ -13,9 +11,12 @@ network_sidebar_awg_message_for_action_blocked(
     return "Wait for the AmneziaWG component check to finish";
   case NETWORK_SIDEBAR_AWG_ACTION_BLOCKED_DEPENDENCIES:
     if (availability->action == NETWORK_SIDEBAR_AWG_ACTION_DELETE) {
-      if ((availability->missing_dependencies & NETWORK_SIDEBAR_AWG_DEPENDENCY_AWG_QUICK) != 0)
-        return "Install awg-quick to disconnect this tunnel before removing its profile";
-      return "Install the privileged AmneziaWG components to remove this profile";
+      if ((availability->missing_dependencies &
+           NETWORK_SIDEBAR_AWG_DEPENDENCY_AWG_QUICK) != 0)
+        return "Install awg-quick to disconnect this tunnel before removing "
+               "its profile";
+      return "Install the privileged AmneziaWG components to remove this "
+             "profile";
     }
     if (availability->action == NETWORK_SIDEBAR_AWG_ACTION_IMPORT ||
         availability->action == NETWORK_SIDEBAR_AWG_ACTION_REPLACE)
@@ -30,9 +31,11 @@ network_sidebar_awg_message_for_action_blocked(
   case NETWORK_SIDEBAR_AWG_ACTION_BLOCKED_RUNTIME_UNKNOWN:
     return "Wait for the AmneziaWG runtime state to refresh";
   case NETWORK_SIDEBAR_AWG_ACTION_BLOCKED_CONFLICT:
-    return "This interface is not owned by the current nm-sidebar runtime marker";
+    return "This interface is not owned by the current nm-sidebar runtime "
+           "marker";
   case NETWORK_SIDEBAR_AWG_ACTION_BLOCKED_MANUAL_CLEANUP:
-    return "Automatic cleanup was not confirmed; inspect the retained root runtime journal";
+    return "Automatic cleanup was not confirmed; inspect the retained root "
+           "runtime journal";
   case NETWORK_SIDEBAR_AWG_ACTION_BLOCKED_ALREADY_IN_STATE:
   case NETWORK_SIDEBAR_AWG_ACTION_BLOCKED_NONE:
     return NULL;
@@ -42,9 +45,7 @@ network_sidebar_awg_message_for_action_blocked(
 
 static char *
 messages_helper_failure_message(NetworkSidebarAwgBackendOperation operation,
-                                guint status,
-                                const char *name)
-{
+                                guint status, const char *name) {
   const char *safe_name = name != NULL ? name : "";
   const char *verb;
 
@@ -56,18 +57,19 @@ messages_helper_failure_message(NetworkSidebarAwgBackendOperation operation,
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVALID_NAME:
     return g_strdup("The AmneziaWG interface name is invalid");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INPUT_TOO_LARGE:
-    return g_strdup(
-      "The AmneziaWG configuration or encoded DNS data exceeds a supported size limit");
+    return g_strdup("The AmneziaWG configuration or encoded DNS data exceeds a "
+                    "supported size limit");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVALID_CONFIG:
-    return g_strdup("The AmneziaWG configuration is invalid or contains unsafe directives");
+    return g_strdup(
+        "The AmneziaWG configuration is invalid or contains unsafe directives");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_NOT_FOUND:
     return g_strdup_printf("AmneziaWG tunnel %s no longer exists", safe_name);
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_ACTIVE:
     if (operation == NETWORK_SIDEBAR_AWG_BACKEND_IMPORT ||
         operation == NETWORK_SIDEBAR_AWG_BACKEND_REPLACE)
       return g_strdup_printf(
-        "Disconnect or clean up AmneziaWG tunnel %s before replacing it",
-        safe_name);
+          "Disconnect or clean up AmneziaWG tunnel %s before replacing it",
+          safe_name);
     return g_strdup_printf("AmneziaWG tunnel %s is active", safe_name);
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INTERFACE_CONFLICT:
     return g_strdup_printf("Interface %s is externally managed", safe_name);
@@ -78,21 +80,28 @@ messages_helper_failure_message(NetworkSidebarAwgBackendOperation operation,
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED:
     return g_strdup("The privileged helper could not update AmneziaWG files");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_RUNTIME_FAILED:
-    return g_strdup("The privileged helper could not update AmneziaWG runtime state");
+    return g_strdup(
+        "The privileged helper could not update AmneziaWG runtime state");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_ROLLBACK_FAILED:
-    return g_strdup("The AmneziaWG operation failed and could not be fully rolled back");
+    return g_strdup(
+        "The AmneziaWG operation failed and could not be fully rolled back");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INPUT_FAILED:
-    return g_strdup("The privileged helper could not read the AmneziaWG configuration");
+    return g_strdup(
+        "The privileged helper could not read the AmneziaWG configuration");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SETUP_FAILED:
     if (operation == NETWORK_SIDEBAR_AWG_BACKEND_DELETE)
-      return g_strdup("The privileged helper could not prepare the AmneziaWG removal");
+      return g_strdup(
+          "The privileged helper could not prepare the AmneziaWG removal");
     return g_strdup("Could not execute awg-quick; check its installation");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INTERFACE_CREATION_FAILED:
-    return g_strdup("Could not create the AmneziaWG interface; check kernel support");
+    return g_strdup(
+        "Could not create the AmneziaWG interface; check kernel support");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_USERSPACE_FAILED:
-    return g_strdup("The AmneziaWG userspace implementation failed; check amneziawg-go");
+    return g_strdup(
+        "The AmneziaWG userspace implementation failed; check amneziawg-go");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SETCONF_FAILED:
-    return g_strdup("The installed awg rejected the tunnel configuration; check version compatibility");
+    return g_strdup("The installed awg rejected the tunnel configuration; "
+                    "check version compatibility");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_ADDRESS_FAILED:
     return g_strdup("Could not assign the AmneziaWG tunnel addresses");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_MTU_FAILED:
@@ -100,33 +109,43 @@ messages_helper_failure_message(NetworkSidebarAwgBackendOperation operation,
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_DNS_FAILED:
     return g_strdup("Could not configure tunnel DNS; check resolvconf");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_ROUTE_FAILED:
-    return g_strdup("Could not configure tunnel routes or routing policy; check route conflicts");
+    return g_strdup("Could not configure tunnel routes or routing policy; "
+                    "check route conflicts");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FIREWALL_FAILED:
-    return g_strdup("Could not configure tunnel firewall rules; check nftables or iptables");
+    return g_strdup("Could not configure tunnel firewall rules; check nftables "
+                    "or iptables");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FIREWALL_CLEANUP_FAILED:
-    return g_strdup("The tunnel interface was removed, but firewall cleanup could not be confirmed; recovery information was retained");
+    return g_strdup(
+        "The tunnel interface was removed, but firewall cleanup could not be "
+        "confirmed; recovery information was retained");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SWITCH_CLEANUP_FAILED:
-    return g_strdup("Previous AmneziaWG sessions could not be fully cleaned up; the selected tunnel was not started");
+    return g_strdup("Previous AmneziaWG sessions could not be fully cleaned "
+                    "up; the selected tunnel was not started");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SIGNALED:
     return g_strdup("awg-quick was terminated before the operation completed");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_DNS_BACKEND_UNAVAILABLE:
-    return g_strdup("Tunnel DNS requires systemd-resolved or a trusted resolvconf installation");
+    return g_strdup("Tunnel DNS requires systemd-resolved or a trusted "
+                    "resolvconf installation");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_DNS_APPLY_FAILED:
-    return g_strdup("Could not apply tunnel DNS through the active resolver backend");
+    return g_strdup(
+        "Could not apply tunnel DNS through the active resolver backend");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_DNS_REVERT_FAILED:
-    return g_strdup("Could not remove tunnel DNS; check the refreshed tunnel state");
+    return g_strdup(
+        "Could not remove tunnel DNS; check the refreshed tunnel state");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_DNS_ROLLBACK_FAILED:
-    return g_strdup("Tunnel DNS could not be restored while rolling back the operation");
+    return g_strdup(
+        "Tunnel DNS could not be restored while rolling back the operation");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVENTORY_PARTIAL:
-    return g_strdup("Some AmneziaWG profile names could not be reported safely");
+    return g_strdup(
+        "Some AmneziaWG profile names could not be reported safely");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_TIMED_OUT:
     if (operation == NETWORK_SIDEBAR_AWG_BACKEND_LIST_PROFILES)
       return g_strdup("The AmneziaWG profile refresh timed out");
-    return g_strdup("The AmneziaWG operation timed out; its final state will be refreshed");
+    return g_strdup(
+        "The AmneziaWG operation timed out; its final state will be refreshed");
   case NETWORK_SIDEBAR_AMNEZIAWG_HELPER_REPLACE_CONFIRMATION_REQUIRED:
     return g_strdup_printf(
-      "AmneziaWG tunnel %s requires replacement confirmation",
-      safe_name);
+        "AmneziaWG tunnel %s requires replacement confirmation", safe_name);
   default:
     break;
   }
@@ -158,8 +177,7 @@ messages_helper_failure_message(NetworkSidebarAwgBackendOperation operation,
 
 static char *
 messages_operation_success_message(NetworkSidebarAwgBackendOperation operation,
-                                   const char *name)
-{
+                                   const char *name) {
   switch (operation) {
   case NETWORK_SIDEBAR_AWG_BACKEND_IMPORT:
     return g_strdup_printf("Imported AmneziaWG tunnel %s", name);
@@ -179,8 +197,7 @@ messages_operation_success_message(NetworkSidebarAwgBackendOperation operation,
 
 static char *
 messages_operation_started_message(NetworkSidebarAwgBackendOperation operation,
-                                   const char *name)
-{
+                                   const char *name) {
   switch (operation) {
   case NETWORK_SIDEBAR_AWG_BACKEND_UP:
     return g_strdup_printf("Switching to AmneziaWG tunnel %s...", name);
@@ -196,9 +213,7 @@ messages_operation_started_message(NetworkSidebarAwgBackendOperation operation,
   }
 }
 
-static char *
-messages_import_error_message(NetworkSidebarAwgImportError error)
-{
+static char *messages_import_error_message(NetworkSidebarAwgImportError error) {
   switch (error) {
   case NETWORK_SIDEBAR_AWG_IMPORT_ERROR_INSPECT_FAILED:
     return g_strdup("Could not inspect the AmneziaWG configuration");
@@ -223,8 +238,7 @@ messages_import_error_message(NetworkSidebarAwgImportError error)
 }
 
 char *
-network_sidebar_awg_message_for_notice(const NetworkSidebarAwgUiEvent *event)
-{
+network_sidebar_awg_message_for_notice(const NetworkSidebarAwgUiEvent *event) {
   if (event == NULL)
     return NULL;
   switch (event->notice) {
@@ -238,19 +252,19 @@ network_sidebar_awg_message_for_notice(const NetworkSidebarAwgUiEvent *event)
     return g_strdup("Could not open the AmneziaWG configuration chooser");
   case NETWORK_SIDEBAR_AWG_NOTICE_INVALID_IMPORT_FILENAME:
     return g_strdup(
-      "The configuration filename is not a valid AmneziaWG interface name");
+        "The configuration filename is not a valid AmneziaWG interface name");
   case NETWORK_SIDEBAR_AWG_NOTICE_IMPORT_CANCELLED:
     return g_strdup("AmneziaWG configuration import cancelled");
   case NETWORK_SIDEBAR_AWG_NOTICE_IMPORT_LOAD_FAILED:
     return messages_import_error_message(event->import_error);
   case NETWORK_SIDEBAR_AWG_NOTICE_OPERATION_TIMED_OUT:
     return g_strdup(
-      "The AmneziaWG operation timed out; its final state will be refreshed");
+        "The AmneziaWG operation timed out; its final state will be refreshed");
   case NETWORK_SIDEBAR_AWG_NOTICE_SERVICE_CONNECT_FAILED:
     return g_strdup("Could not connect to the privileged AmneziaWG service");
   case NETWORK_SIDEBAR_AWG_NOTICE_SERVICE_FAILED:
     return g_strdup(
-      "The privileged AmneziaWG service could not complete the operation");
+        "The privileged AmneziaWG service could not complete the operation");
   case NETWORK_SIDEBAR_AWG_NOTICE_SERVICE_BUSY:
     return g_strdup("Another AmneziaWG operation is in progress");
   case NETWORK_SIDEBAR_AWG_NOTICE_CONFIGURATION_UNAVAILABLE:
@@ -261,18 +275,17 @@ network_sidebar_awg_message_for_notice(const NetworkSidebarAwgUiEvent *event)
     return messages_operation_success_message(event->operation, event->name);
   case NETWORK_SIDEBAR_AWG_NOTICE_HELPER_FAILED:
     return messages_helper_failure_message(event->operation,
-                                           event->helper_status,
-                                           event->name);
+                                           event->helper_status, event->name);
   case NETWORK_SIDEBAR_AWG_NOTICE_PROFILE_MISSING:
     return g_strdup("The AmneziaWG profile no longer exists");
   case NETWORK_SIDEBAR_AWG_NOTICE_PROFILE_ACTIVATION_BLOCKED:
     return g_strdup("Fix the AmneziaWG configuration before activating it");
   case NETWORK_SIDEBAR_AWG_NOTICE_INTERFACE_EXTERNALLY_MANAGED:
     return g_strdup(
-      "AmneziaWG interface is externally managed; no action was taken");
+        "AmneziaWG interface is externally managed; no action was taken");
   case NETWORK_SIDEBAR_AWG_NOTICE_CLEANUP_UNCONFIRMED:
     return g_strdup(
-      "AmneziaWG cleanup is unconfirmed; manual inspection is required");
+        "AmneziaWG cleanup is unconfirmed; manual inspection is required");
   case NETWORK_SIDEBAR_AWG_NOTICE_PROFILE_REMOVAL_BLOCKED:
     return g_strdup("The AmneziaWG profile cannot be removed safely");
   case NETWORK_SIDEBAR_AWG_NOTICE_OPERATION_STARTED:
@@ -287,39 +300,35 @@ network_sidebar_awg_message_for_notice(const NetworkSidebarAwgUiEvent *event)
   }
 }
 
-char *
-network_sidebar_awg_message_for_profile_warning(
-  const NetworkSidebarAwgProfileWarning *warning)
-{
+char *network_sidebar_awg_message_for_profile_warning(
+    const NetworkSidebarAwgProfileWarning *warning) {
   g_autofree char *message = NULL;
 
   if (warning == NULL)
     return NULL;
   switch (warning->kind) {
   case NETWORK_SIDEBAR_AWG_PROFILE_WARNING_PARTIAL:
-    message = g_strdup(
-      "Some configuration filenames could not be reported safely");
+    message =
+        g_strdup("Some configuration filenames could not be reported safely");
     break;
   case NETWORK_SIDEBAR_AWG_PROFILE_WARNING_TIMED_OUT:
     message = g_strdup("The AmneziaWG profile refresh timed out");
     break;
   case NETWORK_SIDEBAR_AWG_PROFILE_WARNING_INVALID_REPLY:
-    message = g_strdup(
-      "The privileged service returned an invalid profile list");
+    message =
+        g_strdup("The privileged service returned an invalid profile list");
     break;
   case NETWORK_SIDEBAR_AWG_PROFILE_WARNING_HELPER_STATUS:
     message = messages_helper_failure_message(
-      NETWORK_SIDEBAR_AWG_BACKEND_LIST_PROFILES,
-      warning->helper_status,
-      "");
+        NETWORK_SIDEBAR_AWG_BACKEND_LIST_PROFILES, warning->helper_status, "");
     break;
   case NETWORK_SIDEBAR_AWG_PROFILE_WARNING_SERVICE_UNAVAILABLE:
-    message = g_strdup(
-      "Could not connect to the privileged AmneziaWG service to list profiles");
+    message = g_strdup("Could not connect to the privileged AmneziaWG service "
+                       "to list profiles");
     break;
   case NETWORK_SIDEBAR_AWG_PROFILE_WARNING_SERVICE_BUSY:
     message = g_strdup(
-      "Profile refresh was deferred while another operation was in progress");
+        "Profile refresh was deferred while another operation was in progress");
     break;
   case NETWORK_SIDEBAR_AWG_PROFILE_WARNING_SERVICE_FAILED:
     message = g_strdup("Could not refresh the AmneziaWG profile list");

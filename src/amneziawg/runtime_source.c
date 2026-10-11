@@ -89,23 +89,18 @@ static gboolean ensure_monitors(NetworkSidebarAwgRuntimeSource *source,
                                 gboolean *ready);
 
 static gboolean
-runtime_source_is_running(NetworkSidebarAwgRuntimeSource *source)
-{
+runtime_source_is_running(NetworkSidebarAwgRuntimeSource *source) {
   return source != NULL && source->started && !source->stopping;
 }
 
-gboolean
-network_sidebar_awg_runtime_source_is_checking(
-  NetworkSidebarAwgRuntimeSource *source)
-{
+gboolean network_sidebar_awg_runtime_source_is_checking(
+    NetworkSidebarAwgRuntimeSource *source) {
   return runtime_source_is_running(source) && source->monitor_enabled &&
          (source->monitor_debounce_source != 0 || source->scan_running);
 }
 
-gboolean
-network_sidebar_awg_runtime_source_is_loading(
-  NetworkSidebarAwgRuntimeSource *source)
-{
+gboolean network_sidebar_awg_runtime_source_is_loading(
+    NetworkSidebarAwgRuntimeSource *source) {
   return network_sidebar_awg_runtime_source_is_checking(source) &&
          ((source->scan_running &&
            source->scan_purpose == NETWORK_SIDEBAR_AWG_REFRESH_VISIBLE) ||
@@ -114,33 +109,27 @@ network_sidebar_awg_runtime_source_is_loading(
 }
 
 static NetworkSidebarAwgRefreshPurpose
-automatic_refresh_purpose(NetworkSidebarAwgRuntimeSource *source)
-{
+automatic_refresh_purpose(NetworkSidebarAwgRuntimeSource *source) {
   if (source->mutation_active || source->reconciliation_active)
     return NETWORK_SIDEBAR_AWG_REFRESH_RECONCILE;
   return NETWORK_SIDEBAR_AWG_REFRESH_VISIBLE;
 }
 
-void
-network_sidebar_awg_runtime_source_set_mutation_active(
-  NetworkSidebarAwgRuntimeSource *source, gboolean active)
-{
+void network_sidebar_awg_runtime_source_set_mutation_active(
+    NetworkSidebarAwgRuntimeSource *source, gboolean active) {
   if (source != NULL && !source->stopping)
     source->mutation_active = active;
 }
 
 NetworkSidebarAwgRuntimeSource *
-network_sidebar_awg_runtime_source_ref(NetworkSidebarAwgRuntimeSource *source)
-{
+network_sidebar_awg_runtime_source_ref(NetworkSidebarAwgRuntimeSource *source) {
   if (source == NULL)
     return NULL;
   g_atomic_int_inc(&source->ref_count);
   return source;
 }
 
-static void
-clear_source_id(guint *source_id)
-{
+static void clear_source_id(guint *source_id) {
   guint id = *source_id;
 
   *source_id = 0;
@@ -148,9 +137,7 @@ clear_source_id(guint *source_id)
     g_source_remove(id);
 }
 
-static void
-clear_monitor(NetworkSidebarAwgRuntimeSource *source)
-{
+static void clear_monitor(NetworkSidebarAwgRuntimeSource *source) {
   if (source->monitor == NULL)
     return;
   g_signal_handlers_disconnect_by_data(source->monitor, source);
@@ -160,9 +147,7 @@ clear_monitor(NetworkSidebarAwgRuntimeSource *source)
   g_clear_pointer(&source->monitor_expected_child, g_free);
 }
 
-static void
-clear_link_monitor(NetworkSidebarAwgRuntimeSource *source)
-{
+static void clear_link_monitor(NetworkSidebarAwgRuntimeSource *source) {
   clear_source_id(&source->link_monitor_source);
   if (source->link_monitor_fd >= 0)
     close(source->link_monitor_fd);
@@ -170,8 +155,7 @@ clear_link_monitor(NetworkSidebarAwgRuntimeSource *source)
 }
 
 static void
-runtime_source_stop_internal(NetworkSidebarAwgRuntimeSource *source)
-{
+runtime_source_stop_internal(NetworkSidebarAwgRuntimeSource *source) {
   if (source->stopping)
     return;
   source->stopping = TRUE;
@@ -193,9 +177,8 @@ runtime_source_stop_internal(NetworkSidebarAwgRuntimeSource *source)
   source->scan_queued = FALSE;
 }
 
-void
-network_sidebar_awg_runtime_source_unref(NetworkSidebarAwgRuntimeSource *source)
-{
+void network_sidebar_awg_runtime_source_unref(
+    NetworkSidebarAwgRuntimeSource *source) {
   if (source == NULL)
     return;
   if (!g_atomic_int_dec_and_test(&source->ref_count))
@@ -208,13 +191,10 @@ network_sidebar_awg_runtime_source_unref(NetworkSidebarAwgRuntimeSource *source)
   g_free(source);
 }
 
-NetworkSidebarAwgRuntimeSource *
-network_sidebar_awg_runtime_source_new(
-  NetworkSidebarAwgRuntimeChangedCallback changed,
-  gpointer user_data)
-{
-  NetworkSidebarAwgRuntimeSource *source = g_new0(
-    NetworkSidebarAwgRuntimeSource, 1);
+NetworkSidebarAwgRuntimeSource *network_sidebar_awg_runtime_source_new(
+    NetworkSidebarAwgRuntimeChangedCallback changed, gpointer user_data) {
+  NetworkSidebarAwgRuntimeSource *source =
+      g_new0(NetworkSidebarAwgRuntimeSource, 1);
 
   source->ref_count = 1;
   source->changed = changed;
@@ -222,29 +202,23 @@ network_sidebar_awg_runtime_source_new(
   source->link_monitor_fd = -1;
   source->names = g_ptr_array_new_with_free_func(g_free);
   source->records = g_ptr_array_new_with_free_func(
-    (GDestroyNotify) network_sidebar_awg_runtime_record_free);
+      (GDestroyNotify)network_sidebar_awg_runtime_record_free);
   return source;
 }
 
-static gint
-string_pointer_compare(gconstpointer left, gconstpointer right)
-{
-  return strcmp(*(char * const *) left, *(char * const *) right);
+static gint string_pointer_compare(gconstpointer left, gconstpointer right) {
+  return strcmp(*(char *const *)left, *(char *const *)right);
 }
 
-static GPtrArray *
-normalize_names(const GPtrArray *names)
-{
-  g_autoptr(GHashTable) unique = g_hash_table_new_full(g_str_hash,
-                                                        g_str_equal,
-                                                        g_free,
-                                                        NULL);
+static GPtrArray *normalize_names(const GPtrArray *names) {
+  g_autoptr(GHashTable) unique =
+      g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
   GPtrArray *normalized = g_ptr_array_new_with_free_func(g_free);
   GHashTableIter iter;
   gpointer key;
 
   for (guint i = 0; names != NULL && i < names->len; i++) {
-    const char *name = g_ptr_array_index((GPtrArray *) names, i);
+    const char *name = g_ptr_array_index((GPtrArray *)names, i);
 
     if (network_sidebar_amneziawg_name_is_valid(name) &&
         (g_hash_table_contains(unique, name) ||
@@ -258,34 +232,28 @@ normalize_names(const GPtrArray *names)
   return normalized;
 }
 
-static GPtrArray *
-copy_names(const GPtrArray *names)
-{
+static GPtrArray *copy_names(const GPtrArray *names) {
   GPtrArray *copy = g_ptr_array_new_with_free_func(g_free);
 
   for (guint i = 0; names != NULL && i < names->len; i++)
-    g_ptr_array_add(copy, g_strdup(g_ptr_array_index((GPtrArray *) names, i)));
+    g_ptr_array_add(copy, g_strdup(g_ptr_array_index((GPtrArray *)names, i)));
   return copy;
 }
 
-static gboolean
-names_equal(const GPtrArray *left, const GPtrArray *right)
-{
+static gboolean names_equal(const GPtrArray *left, const GPtrArray *right) {
   if (left == right)
     return TRUE;
   if (left == NULL || right == NULL || left->len != right->len)
     return FALSE;
   for (guint i = 0; i < left->len; i++) {
-    if (strcmp(g_ptr_array_index((GPtrArray *) left, i),
-               g_ptr_array_index((GPtrArray *) right, i)) != 0)
+    if (strcmp(g_ptr_array_index((GPtrArray *)left, i),
+               g_ptr_array_index((GPtrArray *)right, i)) != 0)
       return FALSE;
   }
   return TRUE;
 }
 
-static RuntimeDirectoryState
-open_runtime_directory(int *directory_fd)
-{
+static RuntimeDirectoryState open_runtime_directory(int *directory_fd) {
   struct stat status;
   int fd;
 
@@ -293,8 +261,8 @@ open_runtime_directory(int *directory_fd)
   fd = open(NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR,
             O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0)
-    return errno == ENOENT ? RUNTIME_DIRECTORY_MISSING :
-                            RUNTIME_DIRECTORY_UNKNOWN;
+    return errno == ENOENT ? RUNTIME_DIRECTORY_MISSING
+                           : RUNTIME_DIRECTORY_UNKNOWN;
   if (fstat(fd, &status) != 0 || !S_ISDIR(status.st_mode) ||
       status.st_uid != 0 || status.st_gid != 0 ||
       (status.st_mode & 0022) != 0) {
@@ -305,11 +273,8 @@ open_runtime_directory(int *directory_fd)
   return RUNTIME_DIRECTORY_TRUSTED;
 }
 
-static gboolean
-add_runtime_names(int directory_fd,
-                  GHashTable *names,
-                  GCancellable *cancellable)
-{
+static gboolean add_runtime_names(int directory_fd, GHashTable *names,
+                                  GCancellable *cancellable) {
   DIR *directory;
   int iterator_fd;
   gboolean complete = TRUE;
@@ -355,11 +320,9 @@ add_runtime_names(int directory_fd,
 }
 
 static RuntimeMarkerState
-read_runtime_marker(int directory_fd,
-                    RuntimeDirectoryState directory_state,
+read_runtime_marker(int directory_fd, RuntimeDirectoryState directory_state,
                     const char *name,
-                    NetworkSidebarAmneziaWGRuntimeMarker *marker)
-{
+                    NetworkSidebarAmneziaWGRuntimeMarker *marker) {
   guint8 buffer[NETWORK_SIDEBAR_AMNEZIAWG_MAX_RUNTIME_MARKER_SIZE];
   struct stat before;
   struct stat after;
@@ -376,8 +339,7 @@ read_runtime_marker(int directory_fd,
       before.st_nlink != 1 || (before.st_mode & 0777) != 0644)
     return RUNTIME_MARKER_INVALID;
 
-  fd = openat(directory_fd,
-              name,
+  fd = openat(directory_fd, name,
               O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0)
     return RUNTIME_MARKER_UNKNOWN;
@@ -399,7 +361,7 @@ read_runtime_marker(int directory_fd,
     }
     if (count == 0)
       break;
-    used += (gsize) count;
+    used += (gsize)count;
   }
   if (used == sizeof(buffer)) {
     guint8 extra;
@@ -414,17 +376,15 @@ read_runtime_marker(int directory_fd,
     }
   }
   close(fd);
-  return network_sidebar_amneziawg_runtime_marker_parse(buffer, used, marker) ?
-    RUNTIME_MARKER_VALID : RUNTIME_MARKER_INVALID;
+  return network_sidebar_amneziawg_runtime_marker_parse(buffer, used, marker)
+             ? RUNTIME_MARKER_VALID
+             : RUNTIME_MARKER_INVALID;
 }
 
-static RuntimeScanResult *
-scan_runtime(const RuntimeScanRequest *request, GCancellable *cancellable)
-{
-  g_autoptr(GHashTable) names = g_hash_table_new_full(g_str_hash,
-                                                       g_str_equal,
-                                                       g_free,
-                                                       NULL);
+static RuntimeScanResult *scan_runtime(const RuntimeScanRequest *request,
+                                       GCancellable *cancellable) {
+  g_autoptr(GHashTable) names =
+      g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
   g_autoptr(NetworkSidebarAmneziaWGLinkSnapshot) links = NULL;
   RuntimeScanResult *result = g_new0(RuntimeScanResult, 1);
   RuntimeDirectoryState directory_state;
@@ -435,13 +395,15 @@ scan_runtime(const RuntimeScanRequest *request, GCancellable *cancellable)
   result->generation = request->generation;
   result->complete = TRUE;
   result->records = g_ptr_array_new_with_free_func(
-    (GDestroyNotify) network_sidebar_awg_runtime_record_free);
+      (GDestroyNotify)network_sidebar_awg_runtime_record_free);
   result->link_filter = network_sidebar_amneziawg_link_event_filter_new();
 
   /* The previous session set is cache-bounded. Inspect both its markers and
-   * links before retiring names, even after a complete directory enumeration. */
+   * links before retiring names, even after a complete directory enumeration.
+   */
   for (guint i = 0; i < request->previous_names->len; i++)
-    g_hash_table_add(names, g_strdup(g_ptr_array_index(request->previous_names, i)));
+    g_hash_table_add(names,
+                     g_strdup(g_ptr_array_index(request->previous_names, i)));
   for (guint i = 0; i < request->names->len; i++) {
     const char *name = g_ptr_array_index(request->names, i);
 
@@ -469,48 +431,42 @@ scan_runtime(const RuntimeScanRequest *request, GCancellable *cancellable)
   g_hash_table_iter_init(&iter, names);
   while (g_hash_table_iter_next(&iter, &key, NULL)) {
     const char *name = key;
-    NetworkSidebarAmneziaWGRuntimeMarker marker = { 0 };
-    NetworkSidebarAmneziaWGLinkObservation observation = { 0 };
+    NetworkSidebarAmneziaWGRuntimeMarker marker = {0};
+    NetworkSidebarAmneziaWGLinkObservation observation = {0};
     RuntimeMarkerState marker_state;
     NetworkSidebarAmneziaWGRuntimeState state =
-      NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_UNKNOWN;
+        NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_UNKNOWN;
     gboolean have_observation = FALSE;
 
     if (cancellable != NULL && g_cancellable_is_cancelled(cancellable))
       goto cancelled;
-    marker_state = read_runtime_marker(directory_fd,
-                                       directory_state,
-                                       name,
-                                       &marker);
+    marker_state =
+        read_runtime_marker(directory_fd, directory_state, name, &marker);
     NetworkSidebarAmneziaWGLinkIdentity identity = {
-      .name = name,
-      .link_token = marker_state == RUNTIME_MARKER_VALID ? marker.link_token : NULL,
-      .ifindex = marker_state == RUNTIME_MARKER_VALID ? marker.ifindex : 0,
+        .name = name,
+        .link_token =
+            marker_state == RUNTIME_MARKER_VALID ? marker.link_token : NULL,
+        .ifindex = marker_state == RUNTIME_MARKER_VALID ? marker.ifindex : 0,
     };
-    network_sidebar_amneziawg_link_event_filter_add(result->link_filter,
-                                                    links, &identity);
+    network_sidebar_amneziawg_link_event_filter_add(result->link_filter, links,
+                                                    &identity);
     if (links != NULL) {
       have_observation = network_sidebar_amneziawg_link_snapshot_observe(
-        links,
-        name,
-        marker_state == RUNTIME_MARKER_VALID ? marker.link_token : NULL,
-        &observation);
+          links, name,
+          marker_state == RUNTIME_MARKER_VALID ? marker.link_token : NULL,
+          &observation);
     }
     if (marker_state == RUNTIME_MARKER_UNKNOWN || !have_observation) {
       result->complete = FALSE;
     } else {
       state = network_sidebar_amneziawg_runtime_state_classify(
-        marker_state != RUNTIME_MARKER_ABSENT,
-        marker_state == RUNTIME_MARKER_VALID,
-        &marker,
-        &observation);
+          marker_state != RUNTIME_MARKER_ABSENT,
+          marker_state == RUNTIME_MARKER_VALID, &marker, &observation);
     }
     g_ptr_array_add(
-      result->records,
-      network_sidebar_awg_runtime_record_new(name,
-                                              state,
-                                              have_observation &&
-                                                observation.named_exists));
+        result->records,
+        network_sidebar_awg_runtime_record_new(
+            name, state, have_observation && observation.named_exists));
   }
   if (directory_fd >= 0)
     close(directory_fd);
@@ -530,9 +486,7 @@ cancelled:
   return NULL;
 }
 
-static void
-runtime_scan_request_free(RuntimeScanRequest *request)
-{
+static void runtime_scan_request_free(RuntimeScanRequest *request) {
   if (request == NULL)
     return;
   g_clear_pointer(&request->names, g_ptr_array_unref);
@@ -540,9 +494,7 @@ runtime_scan_request_free(RuntimeScanRequest *request)
   g_free(request);
 }
 
-static void
-runtime_scan_result_free(RuntimeScanResult *result)
-{
+static void runtime_scan_result_free(RuntimeScanResult *result) {
   if (result == NULL)
     return;
   g_clear_pointer(&result->records, g_ptr_array_unref);
@@ -551,9 +503,7 @@ runtime_scan_result_free(RuntimeScanResult *result)
   g_free(result);
 }
 
-static void
-runtime_scan_completion_free(RuntimeScanCompletion *completion)
-{
+static void runtime_scan_completion_free(RuntimeScanCompletion *completion) {
   if (completion == NULL)
     return;
   runtime_scan_result_free(completion->result);
@@ -561,32 +511,22 @@ runtime_scan_completion_free(RuntimeScanCompletion *completion)
   g_free(completion);
 }
 
-static void
-scan_worker(GTask *task,
-            gpointer source_object,
-            gpointer task_data,
-            GCancellable *cancellable)
-{
+static void scan_worker(GTask *task, gpointer source_object, gpointer task_data,
+                        GCancellable *cancellable) {
   RuntimeScanRequest *request = task_data;
   RuntimeScanResult *result;
-  (void) source_object;
+  (void)source_object;
 
   result = scan_runtime(request, cancellable);
   if (result == NULL) {
-    g_task_return_new_error(task,
-                            G_IO_ERROR,
-                            G_IO_ERROR_CANCELLED,
+    g_task_return_new_error(task, G_IO_ERROR, G_IO_ERROR_CANCELLED,
                             "AmneziaWG runtime scan was cancelled");
     return;
   }
-  g_task_return_pointer(task,
-                        result,
-                        (GDestroyNotify) runtime_scan_result_free);
+  g_task_return_pointer(task, result, (GDestroyNotify)runtime_scan_result_free);
 }
 
-static void
-notify_changed(NetworkSidebarAwgRuntimeSource *source)
-{
+static void notify_changed(NetworkSidebarAwgRuntimeSource *source) {
   NetworkSidebarAwgRuntimeChangedCallback callback;
   gpointer user_data;
 
@@ -601,14 +541,14 @@ notify_changed(NetworkSidebarAwgRuntimeSource *source)
   network_sidebar_awg_runtime_source_unref(source);
 }
 
-static void
-queue_scan(NetworkSidebarAwgRuntimeSource *source,
-           NetworkSidebarAwgRefreshPurpose purpose)
-{
-  source->reconciliation_active = purpose == NETWORK_SIDEBAR_AWG_REFRESH_RECONCILE;
+static void queue_scan(NetworkSidebarAwgRuntimeSource *source,
+                       NetworkSidebarAwgRefreshPurpose purpose) {
+  source->reconciliation_active =
+      purpose == NETWORK_SIDEBAR_AWG_REFRESH_RECONCILE;
   if (!source->refresh_pending) {
-    source->refresh_generation = source->refresh_generation == G_MAXUINT64 ?
-      1 : source->refresh_generation + 1;
+    source->refresh_generation = source->refresh_generation == G_MAXUINT64
+                                     ? 1
+                                     : source->refresh_generation + 1;
   }
   source->refresh_pending = TRUE;
   /* A superseded visible scan still owns presentation until its replacement
@@ -618,10 +558,8 @@ queue_scan(NetworkSidebarAwgRuntimeSource *source,
   source->queued_purpose = MAX(source->queued_purpose, purpose);
 }
 
-static gboolean
-invalidate_records(NetworkSidebarAwgRuntimeSource *source,
-                   NetworkSidebarAwgRefreshPurpose purpose)
-{
+static gboolean invalidate_records(NetworkSidebarAwgRuntimeSource *source,
+                                   NetworkSidebarAwgRefreshPurpose purpose) {
   gboolean was_fresh = source->records_fresh;
 
   queue_scan(source, purpose);
@@ -631,23 +569,18 @@ invalidate_records(NetworkSidebarAwgRuntimeSource *source,
 
 static gboolean scheduled_refresh_cb(gpointer user_data);
 
-static void
-schedule_refresh(NetworkSidebarAwgRuntimeSource *source, guint delay_msec)
-{
+static void schedule_refresh(NetworkSidebarAwgRuntimeSource *source,
+                             guint delay_msec) {
   if (!runtime_source_is_running(source) || !source->monitor_enabled ||
       source->monitor_debounce_source != 0)
     return;
   source->monitor_debounce_source = g_timeout_add_full(
-    G_PRIORITY_DEFAULT,
-    delay_msec,
-    scheduled_refresh_cb,
-    network_sidebar_awg_runtime_source_ref(source),
-    (GDestroyNotify) network_sidebar_awg_runtime_source_unref);
+      G_PRIORITY_DEFAULT, delay_msec, scheduled_refresh_cb,
+      network_sidebar_awg_runtime_source_ref(source),
+      (GDestroyNotify)network_sidebar_awg_runtime_source_unref);
 }
 
-static gboolean
-retry_cb(gpointer user_data)
-{
+static gboolean retry_cb(gpointer user_data) {
   NetworkSidebarAwgRuntimeSource *source = user_data;
   NetworkSidebarAwgRefreshPurpose purpose = source->retry_purpose;
 
@@ -657,11 +590,9 @@ retry_cb(gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
-static void
-schedule_retry(NetworkSidebarAwgRuntimeSource *source,
-               NetworkSidebarAwgRefreshPurpose purpose)
-{
-  static const guint delays[] = { 2, 5, 15, 30, 60 };
+static void schedule_retry(NetworkSidebarAwgRuntimeSource *source,
+                           NetworkSidebarAwgRefreshPurpose purpose) {
+  static const guint delays[] = {2, 5, 15, 30, 60};
   guint delay;
 
   if (!runtime_source_is_running(source) || !source->monitor_enabled)
@@ -673,23 +604,18 @@ schedule_retry(NetworkSidebarAwgRuntimeSource *source,
   if (source->retry_attempt < G_N_ELEMENTS(delays) - 1)
     source->retry_attempt++;
   source->retry_source = g_timeout_add_seconds_full(
-    G_PRIORITY_DEFAULT,
-    delay,
-    retry_cb,
-    network_sidebar_awg_runtime_source_ref(source),
-    (GDestroyNotify) network_sidebar_awg_runtime_source_unref);
+      G_PRIORITY_DEFAULT, delay, retry_cb,
+      network_sidebar_awg_runtime_source_ref(source),
+      (GDestroyNotify)network_sidebar_awg_runtime_source_unref);
 }
 
 static gboolean
-record_identifies_session(const NetworkSidebarAwgRuntimeRecord *record)
-{
+record_identifies_session(const NetworkSidebarAwgRuntimeRecord *record) {
   return record->state != NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_INACTIVE;
 }
 
-static GPtrArray *
-reconcile_scan_records(const GPtrArray *previous_records,
-                       RuntimeScanResult *result)
-{
+static GPtrArray *reconcile_scan_records(const GPtrArray *previous_records,
+                                         RuntimeScanResult *result) {
   g_autoptr(GHashTable) observations = NULL;
   GPtrArray *records;
 
@@ -699,49 +625,47 @@ reconcile_scan_records(const GPtrArray *previous_records,
   observations = g_hash_table_new(g_str_hash, g_str_equal);
   for (guint i = 0; i < result->records->len; i++) {
     NetworkSidebarAwgRuntimeRecord *record =
-      g_ptr_array_index(result->records, i);
+        g_ptr_array_index(result->records, i);
 
     g_hash_table_insert(observations, record->name, record);
   }
   records = g_ptr_array_new_with_free_func(
-    (GDestroyNotify) network_sidebar_awg_runtime_record_free);
+      (GDestroyNotify)network_sidebar_awg_runtime_record_free);
 
   /* An incomplete scan cannot establish absence by omission. Reserve space
    * for known sessions before admitting new names, including at the limit. */
-  for (guint i = 0; i < previous_records->len &&
-                    records->len < AWG_RUNTIME_MAX_NAMES; i++) {
+  for (guint i = 0;
+       i < previous_records->len && records->len < AWG_RUNTIME_MAX_NAMES; i++) {
     const NetworkSidebarAwgRuntimeRecord *previous =
-      g_ptr_array_index((GPtrArray *) previous_records, i);
+        g_ptr_array_index((GPtrArray *)previous_records, i);
     const NetworkSidebarAwgRuntimeRecord *observed;
 
     if (!record_identifies_session(previous))
       continue;
     observed = g_hash_table_lookup(observations, previous->name);
-    g_ptr_array_add(
-      records,
-      network_sidebar_awg_runtime_record_new(
-        previous->name,
-        observed != NULL ? observed->state :
-          NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_UNKNOWN,
-        observed != NULL && observed->interface_exists));
+    g_ptr_array_add(records,
+                    network_sidebar_awg_runtime_record_new(
+                        previous->name,
+                        observed != NULL
+                            ? observed->state
+                            : NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_UNKNOWN,
+                        observed != NULL && observed->interface_exists));
     g_hash_table_remove(observations, previous->name);
   }
-  for (guint i = 0; i < result->records->len &&
-                    records->len < AWG_RUNTIME_MAX_NAMES; i++) {
+  for (guint i = 0;
+       i < result->records->len && records->len < AWG_RUNTIME_MAX_NAMES; i++) {
     const NetworkSidebarAwgRuntimeRecord *record =
-      g_ptr_array_index(result->records, i);
+        g_ptr_array_index(result->records, i);
 
     if (g_hash_table_remove(observations, record->name))
-      g_ptr_array_add(records,
-                      network_sidebar_awg_runtime_record_new(
-                        record->name, record->state, record->interface_exists));
+      g_ptr_array_add(
+          records, network_sidebar_awg_runtime_record_new(
+                       record->name, record->state, record->interface_exists));
   }
   return records;
 }
 
-static gboolean
-publish_scan_cb(gpointer user_data)
-{
+static gboolean publish_scan_cb(gpointer user_data) {
   RuntimeScanCompletion *completion = user_data;
   NetworkSidebarAwgRuntimeSource *source = completion->source;
   RuntimeScanResult *result = completion->result;
@@ -749,7 +673,8 @@ publish_scan_cb(gpointer user_data)
   gboolean invalidated = FALSE;
   gboolean monitors_ready = FALSE;
   gboolean restart;
-  gboolean was_checking = network_sidebar_awg_runtime_source_is_checking(source);
+  gboolean was_checking =
+      network_sidebar_awg_runtime_source_is_checking(source);
   gboolean was_loading = network_sidebar_awg_runtime_source_is_loading(source);
   NetworkSidebarAwgRefreshPurpose purpose = source->scan_purpose;
 
@@ -807,15 +732,14 @@ publish_scan_cb(gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
-static void
-scan_complete_cb(GObject *object, GAsyncResult *async_result, gpointer user_data)
-{
+static void scan_complete_cb(GObject *object, GAsyncResult *async_result,
+                             gpointer user_data) {
   NetworkSidebarAwgRuntimeSource *source = user_data;
   g_autoptr(GError) error = NULL;
   RuntimeScanCompletion *completion;
-  RuntimeScanResult *result = g_task_propagate_pointer(G_TASK(async_result),
-                                                        &error);
-  (void) object;
+  RuntimeScanResult *result =
+      g_task_propagate_pointer(G_TASK(async_result), &error);
+  (void)object;
 
   if (!runtime_source_is_running(source) || !source->monitor_enabled) {
     source->scan_running = FALSE;
@@ -827,16 +751,12 @@ scan_complete_cb(GObject *object, GAsyncResult *async_result, gpointer user_data
   completion = g_new0(RuntimeScanCompletion, 1);
   completion->source = source;
   completion->result = result;
-  source->scan_publish_source = g_idle_add_full(
-    G_PRIORITY_DEFAULT_IDLE,
-    publish_scan_cb,
-    completion,
-    (GDestroyNotify) runtime_scan_completion_free);
+  source->scan_publish_source =
+      g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, publish_scan_cb, completion,
+                      (GDestroyNotify)runtime_scan_completion_free);
 }
 
-static void
-start_scan(NetworkSidebarAwgRuntimeSource *source)
-{
+static void start_scan(NetworkSidebarAwgRuntimeSource *source) {
   RuntimeScanRequest *request;
   GTask *task;
   gboolean monitors_ready = FALSE;
@@ -857,7 +777,7 @@ start_scan(NetworkSidebarAwgRuntimeSource *source)
   request->previous_names = g_ptr_array_new_with_free_func(g_free);
   for (guint i = 0; i < source->records->len; i++) {
     const NetworkSidebarAwgRuntimeRecord *record =
-      g_ptr_array_index(source->records, i);
+        g_ptr_array_index(source->records, i);
 
     if (record_identifies_session(record))
       g_ptr_array_add(request->previous_names, g_strdup(record->name));
@@ -868,22 +788,18 @@ start_scan(NetworkSidebarAwgRuntimeSource *source)
   source->scan_running = TRUE;
   source->scan_purpose = source->queued_purpose;
   source->queued_purpose = NETWORK_SIDEBAR_AWG_REFRESH_RECONCILE;
-  task = g_task_new(NULL,
-                    source->lifecycle_cancellable,
-                    scan_complete_cb,
+  task = g_task_new(NULL, source->lifecycle_cancellable, scan_complete_cb,
                     network_sidebar_awg_runtime_source_ref(source));
   g_task_set_return_on_cancel(task, FALSE);
-  g_task_set_task_data(task,
-                       request,
-                       (GDestroyNotify) runtime_scan_request_free);
+  g_task_set_task_data(task, request,
+                       (GDestroyNotify)runtime_scan_request_free);
   g_task_run_in_thread(task, scan_worker);
   g_object_unref(task);
 }
 
-void
-network_sidebar_awg_runtime_source_poll(NetworkSidebarAwgRuntimeSource *source,
-                                        NetworkSidebarAwgRefreshPurpose purpose)
-{
+void network_sidebar_awg_runtime_source_poll(
+    NetworkSidebarAwgRuntimeSource *source,
+    NetworkSidebarAwgRefreshPurpose purpose) {
   gboolean was_loading;
 
   if (!runtime_source_is_running(source) || !source->monitor_enabled)
@@ -901,7 +817,8 @@ network_sidebar_awg_runtime_source_poll(NetworkSidebarAwgRuntimeSource *source,
     return;
   }
   /* Polling alone is not evidence that a monitored observation is obsolete.
-   * Real change notifications still invalidate it and retire this generation. */
+   * Real change notifications still invalidate it and retire this generation.
+   */
   clear_source_id(&source->retry_source);
   source->retry_purpose = NETWORK_SIDEBAR_AWG_REFRESH_RECONCILE;
   queue_scan(source, purpose);
@@ -909,11 +826,9 @@ network_sidebar_awg_runtime_source_poll(NetworkSidebarAwgRuntimeSource *source,
   notify_changed(source);
 }
 
-void
-network_sidebar_awg_runtime_source_request_refresh(
-  NetworkSidebarAwgRuntimeSource *source,
-  NetworkSidebarAwgRefreshPurpose purpose)
-{
+void network_sidebar_awg_runtime_source_request_refresh(
+    NetworkSidebarAwgRuntimeSource *source,
+    NetworkSidebarAwgRefreshPurpose purpose) {
   gboolean was_fresh;
   gboolean was_checking;
   gboolean was_loading;
@@ -931,17 +846,14 @@ network_sidebar_awg_runtime_source_request_refresh(
     notify_changed(source);
 }
 
-void
-network_sidebar_awg_runtime_source_record_delete(
-  NetworkSidebarAwgRuntimeSource *source,
-  const char *name)
-{
+void network_sidebar_awg_runtime_source_record_delete(
+    NetworkSidebarAwgRuntimeSource *source, const char *name) {
   if (source == NULL || source->stopping ||
       !network_sidebar_amneziawg_name_is_valid(name))
     return;
   for (guint i = 0; i < source->records->len; i++) {
     const NetworkSidebarAwgRuntimeRecord *record =
-      g_ptr_array_index(source->records, i);
+        g_ptr_array_index(source->records, i);
 
     if (g_strcmp0(record->name, name) == 0) {
       g_ptr_array_remove_index(source->records, i);
@@ -949,15 +861,12 @@ network_sidebar_awg_runtime_source_record_delete(
     }
   }
   network_sidebar_awg_runtime_source_request_refresh(
-    source, NETWORK_SIDEBAR_AWG_REFRESH_RECONCILE);
+      source, NETWORK_SIDEBAR_AWG_REFRESH_RECONCILE);
 }
 
-void
-network_sidebar_awg_runtime_source_set_names(
-  NetworkSidebarAwgRuntimeSource *source,
-  const GPtrArray *names,
-  NetworkSidebarAwgRefreshPurpose purpose)
-{
+void network_sidebar_awg_runtime_source_set_names(
+    NetworkSidebarAwgRuntimeSource *source, const GPtrArray *names,
+    NetworkSidebarAwgRefreshPurpose purpose) {
   g_autoptr(GPtrArray) normalized = NULL;
   gboolean was_checking;
   gboolean was_loading;
@@ -984,18 +893,16 @@ network_sidebar_awg_runtime_source_set_names(
     notify_changed(source);
 }
 
-GPtrArray *
-network_sidebar_awg_runtime_source_dup_cached_records(
-  NetworkSidebarAwgRuntimeSource *source)
-{
+GPtrArray *network_sidebar_awg_runtime_source_dup_cached_records(
+    NetworkSidebarAwgRuntimeSource *source) {
   GPtrArray *records = g_ptr_array_new_with_free_func(
-    (GDestroyNotify) network_sidebar_awg_runtime_record_free);
+      (GDestroyNotify)network_sidebar_awg_runtime_record_free);
 
   if (source == NULL)
     return records;
   for (guint i = 0; i < source->records->len; i++) {
     const NetworkSidebarAwgRuntimeRecord *record =
-      g_ptr_array_index(source->records, i);
+        g_ptr_array_index(source->records, i);
 
     /* Saved-profile membership is supplied separately by the model. Do not
      * turn a formerly inactive profile into an unknown runtime-only row. */
@@ -1003,21 +910,18 @@ network_sidebar_awg_runtime_source_dup_cached_records(
       continue;
     g_ptr_array_add(records,
                     network_sidebar_awg_runtime_record_new(
-                      record->name,
-                      source->records_fresh ? record->state :
-                        NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_UNKNOWN,
-                      source->records_fresh && record->interface_exists));
+                        record->name,
+                        source->records_fresh
+                            ? record->state
+                            : NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_UNKNOWN,
+                        source->records_fresh && record->interface_exists));
   }
   return records;
 }
 
-gboolean
-network_sidebar_awg_runtime_source_get_cached(
-  NetworkSidebarAwgRuntimeSource *source,
-  const char *name,
-  NetworkSidebarAmneziaWGRuntimeState *state,
-  gboolean *interface_exists)
-{
+gboolean network_sidebar_awg_runtime_source_get_cached(
+    NetworkSidebarAwgRuntimeSource *source, const char *name,
+    NetworkSidebarAmneziaWGRuntimeState *state, gboolean *interface_exists) {
   if (state != NULL)
     *state = NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_UNKNOWN;
   if (interface_exists != NULL)
@@ -1028,7 +932,7 @@ network_sidebar_awg_runtime_source_get_cached(
 
   for (guint i = 0; i < source->records->len; i++) {
     const NetworkSidebarAwgRuntimeRecord *record =
-      g_ptr_array_index(source->records, i);
+        g_ptr_array_index(source->records, i);
 
     if (strcmp(record->name, name) != 0)
       continue;
@@ -1041,9 +945,7 @@ network_sidebar_awg_runtime_source_get_cached(
   return FALSE;
 }
 
-static gboolean
-scheduled_refresh_cb(gpointer user_data)
-{
+static gboolean scheduled_refresh_cb(gpointer user_data) {
   NetworkSidebarAwgRuntimeSource *source = user_data;
 
   /* Retain scheduled progress until start_scan has taken ownership, including
@@ -1056,9 +958,7 @@ scheduled_refresh_cb(gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
-static void
-schedule_monitor_refresh(NetworkSidebarAwgRuntimeSource *source)
-{
+static void schedule_monitor_refresh(NetworkSidebarAwgRuntimeSource *source) {
   gboolean was_fresh;
   gboolean was_checking;
 
@@ -1073,21 +973,17 @@ schedule_monitor_refresh(NetworkSidebarAwgRuntimeSource *source)
     notify_changed(source);
 }
 
-static void
-monitor_changed_cb(GFileMonitor *monitor,
-                   GFile *file,
-                   GFile *other_file,
-                   GFileMonitorEvent event_type,
-                   gpointer user_data)
-{
+static void monitor_changed_cb(GFileMonitor *monitor, GFile *file,
+                               GFile *other_file, GFileMonitorEvent event_type,
+                               gpointer user_data) {
   g_autoptr(NetworkSidebarAwgRuntimeSource) source =
-    network_sidebar_awg_runtime_source_ref(user_data);
+      network_sidebar_awg_runtime_source_ref(user_data);
   g_autofree char *path = file != NULL ? g_file_get_path(file) : NULL;
-  g_autofree char *other_path = other_file != NULL ?
-    g_file_get_path(other_file) : NULL;
+  g_autofree char *other_path =
+      other_file != NULL ? g_file_get_path(other_file) : NULL;
   gboolean fallback_event;
   gboolean monitor_removed;
-  (void) monitor;
+  (void)monitor;
 
   if (!runtime_source_is_running(source) || !source->monitor_enabled)
     return;
@@ -1099,8 +995,7 @@ monitor_changed_cb(GFileMonitor *monitor,
                       g_strcmp0(other_path, source->monitor_path) == 0));
   fallback_event = source->monitor_expected_child != NULL &&
                    (g_strcmp0(path, source->monitor_expected_child) == 0 ||
-                    g_strcmp0(other_path,
-                              source->monitor_expected_child) == 0);
+                    g_strcmp0(other_path, source->monitor_expected_child) == 0);
   if (source->monitor_expected_child != NULL && !fallback_event &&
       !monitor_removed)
     return;
@@ -1109,29 +1004,28 @@ monitor_changed_cb(GFileMonitor *monitor,
   schedule_monitor_refresh(source);
 }
 
-static gboolean
-link_monitor_cb(gint fd, GIOCondition condition, gpointer user_data)
-{
+static gboolean link_monitor_cb(gint fd, GIOCondition condition,
+                                gpointer user_data) {
   g_autoptr(NetworkSidebarAwgRuntimeSource) source =
-    network_sidebar_awg_runtime_source_ref(user_data);
+      network_sidebar_awg_runtime_source_ref(user_data);
   _Alignas(struct nlmsghdr) guint8 buffer[AWG_LINK_EVENT_BUFFER_SIZE];
   gboolean failed = (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL)) != 0;
   gboolean changed = FALSE;
   gboolean drained = FALSE;
 
   for (guint i = 0; !failed && i < AWG_LINK_EVENT_DRAIN_LIMIT; i++) {
-    struct sockaddr_nl sender = { 0 };
-    struct iovec vector = { buffer, sizeof(buffer) };
+    struct sockaddr_nl sender = {0};
+    struct iovec vector = {buffer, sizeof(buffer)};
     struct msghdr message = {
-      .msg_name = &sender,
-      .msg_namelen = sizeof(sender),
-      .msg_iov = &vector,
-      .msg_iovlen = 1,
+        .msg_name = &sender,
+        .msg_namelen = sizeof(sender),
+        .msg_iov = &vector,
+        .msg_iovlen = 1,
     };
     ssize_t count = recvmsg(fd, &message, MSG_DONTWAIT | MSG_TRUNC);
 
     if (count > 0) {
-      if (count > (ssize_t) sizeof(buffer) ||
+      if (count > (ssize_t)sizeof(buffer) ||
           (message.msg_flags & (MSG_TRUNC | MSG_CTRUNC)) != 0 ||
           message.msg_namelen != sizeof(sender) ||
           sender.nl_family != AF_NETLINK || sender.nl_pid != 0) {
@@ -1140,7 +1034,7 @@ link_monitor_cb(gint fd, GIOCondition condition, gpointer user_data)
       }
       if (!source->records_fresh ||
           network_sidebar_amneziawg_link_event_filter_is_relevant(
-            source->link_filter, buffer, (gsize) count))
+              source->link_filter, buffer, (gsize)count))
         changed = TRUE;
       continue;
     }
@@ -1169,56 +1063,46 @@ link_monitor_cb(gint fd, GIOCondition condition, gpointer user_data)
   return G_SOURCE_REMOVE;
 }
 
-static GFileMonitor *
-create_file_monitor(NetworkSidebarAwgRuntimeSource *source, const char *path)
-{
+static GFileMonitor *create_file_monitor(NetworkSidebarAwgRuntimeSource *source,
+                                         const char *path) {
   g_autoptr(GFile) directory = NULL;
   g_autoptr(GError) error = NULL;
   GFileMonitor *monitor;
 
   directory = g_file_new_for_path(path);
-  monitor = g_file_monitor_directory(directory,
-                                     G_FILE_MONITOR_NONE,
-                                     source->lifecycle_cancellable,
-                                     &error);
+  monitor = g_file_monitor_directory(directory, G_FILE_MONITOR_NONE,
+                                     source->lifecycle_cancellable, &error);
   return monitor;
 }
 
-static void
-install_file_monitor(NetworkSidebarAwgRuntimeSource *source,
-                     GFileMonitor *monitor,
-                     const char *path,
-                     const char *expected_child)
-{
+static void install_file_monitor(NetworkSidebarAwgRuntimeSource *source,
+                                 GFileMonitor *monitor, const char *path,
+                                 const char *expected_child) {
   clear_monitor(source);
   source->monitor = monitor;
   source->monitor_path = g_strdup(path);
   source->monitor_expected_child = g_strdup(expected_child);
-  g_signal_connect(source->monitor,
-                   "changed",
-                   G_CALLBACK(monitor_changed_cb),
+  g_signal_connect(source->monitor, "changed", G_CALLBACK(monitor_changed_cb),
                    source);
 }
 
-static gboolean
-ensure_file_monitor(NetworkSidebarAwgRuntimeSource *source, gboolean *ready)
-{
-  g_autofree char *parent = g_path_get_dirname(
-    NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR);
+static gboolean ensure_file_monitor(NetworkSidebarAwgRuntimeSource *source,
+                                    gboolean *ready) {
+  g_autofree char *parent =
+      g_path_get_dirname(NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR);
   g_autofree char *ancestor = g_path_get_dirname(parent);
   const char *paths[] = {
-    NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR,
-    parent,
-    ancestor,
+      NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR,
+      parent,
+      ancestor,
   };
   const char *expected[] = {
-    NULL,
-    NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR,
-    parent,
+      NULL,
+      NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_DIR,
+      parent,
   };
 
-  if (source->monitor != NULL &&
-      g_file_monitor_is_cancelled(source->monitor))
+  if (source->monitor != NULL && g_file_monitor_is_cancelled(source->monitor))
     clear_monitor(source);
   for (guint i = 0; i < G_N_ELEMENTS(paths); i++) {
     GFileMonitor *monitor;
@@ -1242,10 +1126,9 @@ ensure_file_monitor(NetworkSidebarAwgRuntimeSource *source, gboolean *ready)
   return FALSE;
 }
 
-static gboolean
-ensure_link_monitor(NetworkSidebarAwgRuntimeSource *source, gboolean *ready)
-{
-  struct sockaddr_nl address = { 0 };
+static gboolean ensure_link_monitor(NetworkSidebarAwgRuntimeSource *source,
+                                    gboolean *ready) {
+  struct sockaddr_nl address = {0};
   int fd;
 
   if (source->link_monitor_source != 0) {
@@ -1256,25 +1139,20 @@ ensure_link_monitor(NetworkSidebarAwgRuntimeSource *source, gboolean *ready)
   if (source->link_monitor_fd >= 0)
     close(source->link_monitor_fd);
   source->link_monitor_fd = -1;
-  fd = socket(AF_NETLINK,
-              SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK,
+  fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK,
               NETLINK_ROUTE);
   if (fd < 0)
     goto unavailable;
   address.nl_family = AF_NETLINK;
   address.nl_groups = RTMGRP_LINK;
-  if (bind(fd, (const struct sockaddr *) &address, sizeof(address)) != 0) {
+  if (bind(fd, (const struct sockaddr *)&address, sizeof(address)) != 0) {
     close(fd);
     goto unavailable;
   }
   source->link_monitor_fd = fd;
   source->link_monitor_source = g_unix_fd_add_full(
-    G_PRIORITY_DEFAULT,
-    fd,
-    G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
-    link_monitor_cb,
-    source,
-    NULL);
+      G_PRIORITY_DEFAULT, fd, G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
+      link_monitor_cb, source, NULL);
   if (source->link_monitor_source == 0) {
     close(fd);
     source->link_monitor_fd = -1;
@@ -1290,9 +1168,8 @@ unavailable:
   return FALSE;
 }
 
-static gboolean
-ensure_monitors(NetworkSidebarAwgRuntimeSource *source, gboolean *ready)
-{
+static gboolean ensure_monitors(NetworkSidebarAwgRuntimeSource *source,
+                                gboolean *ready) {
   gboolean file_ready = FALSE;
   gboolean link_ready = FALSE;
   gboolean changed;
@@ -1304,10 +1181,8 @@ ensure_monitors(NetworkSidebarAwgRuntimeSource *source, gboolean *ready)
   return changed;
 }
 
-void
-network_sidebar_awg_runtime_source_ensure_monitor(
-  NetworkSidebarAwgRuntimeSource *source)
-{
+void network_sidebar_awg_runtime_source_ensure_monitor(
+    NetworkSidebarAwgRuntimeSource *source) {
   gboolean ready;
   gboolean was_fresh = FALSE;
   gboolean was_checking;
@@ -1328,9 +1203,8 @@ network_sidebar_awg_runtime_source_ensure_monitor(
     notify_changed(source);
 }
 
-void
-network_sidebar_awg_runtime_source_start(NetworkSidebarAwgRuntimeSource *source)
-{
+void network_sidebar_awg_runtime_source_start(
+    NetworkSidebarAwgRuntimeSource *source) {
   if (source == NULL || source->started || source->stopping)
     return;
   source->started = TRUE;
@@ -1338,33 +1212,31 @@ network_sidebar_awg_runtime_source_start(NetworkSidebarAwgRuntimeSource *source)
   if (source->monitor_enabled) {
     network_sidebar_awg_runtime_source_ensure_monitor(source);
     network_sidebar_awg_runtime_source_request_refresh(
-      source, NETWORK_SIDEBAR_AWG_REFRESH_VISIBLE);
+        source, NETWORK_SIDEBAR_AWG_REFRESH_VISIBLE);
   }
 }
 
-void
-network_sidebar_awg_runtime_source_stop(NetworkSidebarAwgRuntimeSource *source)
-{
+void network_sidebar_awg_runtime_source_stop(
+    NetworkSidebarAwgRuntimeSource *source) {
   if (source != NULL)
     runtime_source_stop_internal(source);
 }
 
-void
-network_sidebar_awg_runtime_source_set_monitor_enabled(
-  NetworkSidebarAwgRuntimeSource *source,
-  gboolean enabled)
-{
+void network_sidebar_awg_runtime_source_set_monitor_enabled(
+    NetworkSidebarAwgRuntimeSource *source, gboolean enabled) {
   if (source == NULL || source->monitor_enabled == enabled)
     return;
-  gboolean was_checking = network_sidebar_awg_runtime_source_is_checking(source);
+  gboolean was_checking =
+      network_sidebar_awg_runtime_source_is_checking(source);
   source->monitor_enabled = enabled;
   if (!enabled) {
     clear_source_id(&source->monitor_debounce_source);
     clear_source_id(&source->retry_source);
     clear_monitor(source);
     clear_link_monitor(source);
-    source->refresh_generation = source->refresh_generation == G_MAXUINT64 ?
-      1 : source->refresh_generation + 1;
+    source->refresh_generation = source->refresh_generation == G_MAXUINT64
+                                     ? 1
+                                     : source->refresh_generation + 1;
     source->records_fresh = FALSE;
     source->refresh_pending = FALSE;
     source->scan_queued = FALSE;
@@ -1380,5 +1252,5 @@ network_sidebar_awg_runtime_source_set_monitor_enabled(
   }
   network_sidebar_awg_runtime_source_ensure_monitor(source);
   network_sidebar_awg_runtime_source_request_refresh(
-    source, NETWORK_SIDEBAR_AWG_REFRESH_VISIBLE);
+      source, NETWORK_SIDEBAR_AWG_REFRESH_VISIBLE);
 }

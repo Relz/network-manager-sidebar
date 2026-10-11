@@ -21,27 +21,26 @@ typedef enum {
 } NetworkSidebarAwgImportLoadResult;
 
 typedef void (*NetworkSidebarAwgImportLoadCallback)(
-  NetworkSidebarAwgImportLoader *loader,
-  NetworkSidebarAwgImportLoadResult result,
-  /* Borrowed for this callback; successful consumers must take a reference. */
-  GBytes *config,
-  gpointer user_data);
+    NetworkSidebarAwgImportLoader *loader,
+    NetworkSidebarAwgImportLoadResult result,
+    /* Borrowed for this callback; successful consumers must take a reference.
+     */
+    GBytes *config, gpointer user_data);
 
 NetworkSidebarAwgImportLoader *network_sidebar_awg_import_loader_new(
-  GFile *file,
-  NetworkSidebarAwgImportLoadCallback callback,
-  gpointer user_data);
-NetworkSidebarAwgImportLoader *network_sidebar_awg_import_loader_ref(
-  NetworkSidebarAwgImportLoader *loader);
+    GFile *file, NetworkSidebarAwgImportLoadCallback callback,
+    gpointer user_data);
+NetworkSidebarAwgImportLoader *
+network_sidebar_awg_import_loader_ref(NetworkSidebarAwgImportLoader *loader);
 void network_sidebar_awg_import_loader_unref(
-  NetworkSidebarAwgImportLoader *loader);
+    NetworkSidebarAwgImportLoader *loader);
 
 /* Lifecycle calls and callbacks use the default main context's thread.
  * Only files exposing a local path are accepted. */
 void network_sidebar_awg_import_loader_start(
-  NetworkSidebarAwgImportLoader *loader);
+    NetworkSidebarAwgImportLoader *loader);
 void network_sidebar_awg_import_loader_cancel(
-  NetworkSidebarAwgImportLoader *loader);
+    NetworkSidebarAwgImportLoader *loader);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(NetworkSidebarAwgImportLoader,
                               network_sidebar_awg_import_loader_unref)

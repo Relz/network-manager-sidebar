@@ -2,9 +2,7 @@
 
 #include <string.h>
 
-static char *
-utf8_strip_copy(const char *value)
-{
+static char *utf8_strip_copy(const char *value) {
   const char *start;
   const char *end;
 
@@ -34,9 +32,7 @@ utf8_strip_copy(const char *value)
   return g_strndup(start, end - start);
 }
 
-char *
-network_sidebar_normalize_target_output(const char *output_name)
-{
+char *network_sidebar_normalize_target_output(const char *output_name) {
   g_autofree char *trimmed = NULL;
   glong char_count = 0;
 
@@ -58,17 +54,16 @@ network_sidebar_normalize_target_output(const char *output_name)
   return g_strdup(trimmed);
 }
 
-char *
-network_sidebar_target_output_from_environment(void)
-{
+char *network_sidebar_target_output_from_environment(void) {
   static const char *env_vars[] = {
-    "NM_SIDEBAR_OUTPUT",
-    "WAYBAR_OUTPUT_NAME",
-    NULL,
+      "NM_SIDEBAR_OUTPUT",
+      "WAYBAR_OUTPUT_NAME",
+      NULL,
   };
 
   for (gsize i = 0; env_vars[i] != NULL; i++) {
-    g_autofree char *normalized = network_sidebar_normalize_target_output(g_getenv(env_vars[i]));
+    g_autofree char *normalized =
+        network_sidebar_normalize_target_output(g_getenv(env_vars[i]));
     if (normalized != NULL)
       return g_steal_pointer(&normalized);
   }

@@ -5,9 +5,9 @@
 #include "helper/amneziawg_supervision_protocol.h"
 #include "helper/amneziawg_supervisor.h"
 
-#include <gio/gio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gio/gio.h>
 #include <signal.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
@@ -78,33 +78,23 @@ typedef struct {
 
 static void begin_stop(AwgHelperRun *run, RunStopReason reason);
 
-static gint64
-monotonic_msec(void)
-{
-  return g_get_monotonic_time() / 1000;
-}
+static gint64 monotonic_msec(void) { return g_get_monotonic_time() / 1000; }
 
-static void
-close_fd(int *fd)
-{
+static void close_fd(int *fd) {
   if (*fd >= 0) {
     close(*fd);
     *fd = -1;
   }
 }
 
-static void
-secret_buffer_free(gpointer user_data)
-{
+static void secret_buffer_free(gpointer user_data) {
   SecretBuffer *secret = user_data;
 
   network_sidebar_amneziawg_secret_free(secret->data, secret->length);
   g_free(secret);
 }
 
-static GBytes *
-secret_bytes_copy(const guint8 *data, gsize length)
-{
+static GBytes *secret_bytes_copy(const guint8 *data, gsize length) {
   SecretBuffer *secret = g_new0(SecretBuffer, 1);
 
   secret->length = length;
@@ -113,9 +103,7 @@ secret_bytes_copy(const guint8 *data, gsize length)
                                     secret_buffer_free, secret);
 }
 
-static gboolean
-executable_is_trusted(const char *path)
-{
+static gboolean executable_is_trusted(const char *path) {
   struct stat status;
   int fd;
   gboolean trusted;
@@ -132,11 +120,12 @@ executable_is_trusted(const char *path)
   return trusted;
 }
 
-static guint
-helper_capabilities(void)
-{
+static guint helper_capabilities(void) {
   static const char *const awg_quick_paths[] = {
-    "/usr/bin/awg-quick", "/usr/sbin/awg-quick", "/bin/awg-quick", "/sbin/awg-quick",
+      "/usr/bin/awg-quick",
+      "/usr/sbin/awg-quick",
+      "/bin/awg-quick",
+      "/sbin/awg-quick",
   };
   guint capabilities = NETWORK_SIDEBAR_AMNEZIAWG_CAPABILITY_NONE;
 
@@ -151,25 +140,19 @@ helper_capabilities(void)
   return capabilities;
 }
 
-static void
-notify_changed(NetworkSidebarAwgHelperRunner *runner)
-{
+static void notify_changed(NetworkSidebarAwgHelperRunner *runner) {
   if (runner->callbacks.changed != NULL)
     runner->callbacks.changed(runner->user_data);
 }
 
-static void
-mark_failed(NetworkSidebarAwgHelperRunner *runner)
-{
+static void mark_failed(NetworkSidebarAwgHelperRunner *runner) {
   if (runner->failed)
     return;
   runner->failed = TRUE;
   notify_changed(runner);
 }
 
-static void
-reap_pending_children(NetworkSidebarAwgHelperRunner *runner)
-{
+static void reap_pending_children(NetworkSidebarAwgHelperRunner *runner) {
   GHashTableIter iter;
   gpointer key;
 
@@ -186,9 +169,7 @@ reap_pending_children(NetworkSidebarAwgHelperRunner *runner)
   }
 }
 
-static void
-run_free(AwgHelperRun *run)
-{
+static void run_free(AwgHelperRun *run) {
   if (run->helper_source != 0)
     g_source_remove(run->helper_source);
   close_fd(&run->helper_stdin_fd);
@@ -196,7 +177,8 @@ run_free(AwgHelperRun *run)
   if (run->supervisor != NULL) {
     g_autoptr(GArray) child_pids = g_array_new(FALSE, FALSE, sizeof(pid_t));
 
-    network_sidebar_awg_supervisor_detach_retired_sentinels(run->supervisor, child_pids);
+    network_sidebar_awg_supervisor_detach_retired_sentinels(run->supervisor,
+                                                            child_pids);
     for (guint i = 0; i < child_pids->len; i++)
       g_hash_table_add(run->runner->pending_child_reaps,
                        GINT_TO_POINTER(g_array_index(child_pids, pid_t, i)));
@@ -209,9 +191,7 @@ run_free(AwgHelperRun *run)
   g_free(run);
 }
 
-static NetworkSidebarAmneziaWGHelperExit
-effective_status(AwgHelperRun *run)
-{
+static NetworkSidebarAmneziaWGHelperExit effective_status(AwgHelperRun *run) {
   NetworkSidebarAmneziaWGHelperExit status = run->helper_status;
 
   if (run->helper_io_failed && run->stop_reason == RUN_STOP_NONE)
@@ -230,13 +210,11 @@ effective_status(AwgHelperRun *run)
   return status;
 }
 
-static void
-publish_result(AwgHelperRun *run)
-{
+static void publish_result(AwgHelperRun *run) {
   g_autoptr(NetworkSidebarAwgProfileReport) report = NULL;
   NetworkSidebarAwgHelperResult result = {
-    .status = effective_status(run),
-    .capabilities = run->capabilities,
+      .status = effective_status(run),
+      .capabilities = run->capabilities,
   };
 
   if (run->result_sent)
@@ -246,7 +224,7 @@ publish_result(AwgHelperRun *run)
        result.status == NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVENTORY_PARTIAL)) {
     if (run->helper_output != NULL)
       report = network_sidebar_awg_profile_report_decode(
-        run->helper_output->data, run->helper_output->len, result.status);
+          run->helper_output->data, run->helper_output->len, result.status);
     if (report == NULL)
       result.status = NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SETUP_FAILED;
   }
@@ -256,9 +234,7 @@ publish_result(AwgHelperRun *run)
     run->runner->callbacks.result(&result, run->runner->user_data);
 }
 
-static void
-finish_run(AwgHelperRun *run)
-{
+static void finish_run(AwgHelperRun *run) {
   NetworkSidebarAwgHelperRunner *runner = run->runner;
 
   publish_result(run);
@@ -270,44 +246,39 @@ finish_run(AwgHelperRun *run)
   notify_changed(runner);
 }
 
-static void
-signal_helper(AwgHelperRun *run, int signal_number)
-{
+static void signal_helper(AwgHelperRun *run, int signal_number) {
   if (run->helper_pid <= 0 || run->helper_reaped)
     return;
   if (kill(-run->helper_pid, signal_number) != 0 && errno == ESRCH)
     kill(run->helper_pid, signal_number);
 }
 
-static void
-begin_supervisor_cleanup(AwgHelperRun *run, int signal_number)
-{
+static void begin_supervisor_cleanup(AwgHelperRun *run, int signal_number) {
   if (signal_number == SIGKILL && run->group_cleanup_deadline == 0)
     run->group_cleanup_deadline = network_sidebar_amneziawg_deadline_cap(
-      monotonic_msec(), run->deadlines.hard_at, GROUP_CLEANUP_TIMEOUT_MSEC);
+        monotonic_msec(), run->deadlines.hard_at, GROUP_CLEANUP_TIMEOUT_MSEC);
   if (run->supervisor == NULL) {
     run->group_cleanup_done = TRUE;
     return;
   }
   network_sidebar_awg_supervisor_begin_cleanup(run->supervisor);
   network_sidebar_awg_supervisor_signal_groups(run->supervisor, signal_number);
-  run->group_cleanup_done = network_sidebar_awg_supervisor_groups_empty(run->supervisor);
+  run->group_cleanup_done =
+      network_sidebar_awg_supervisor_groups_empty(run->supervisor);
 }
 
-static void
-refresh_supervisor_cleanup(AwgHelperRun *run)
-{
+static void refresh_supervisor_cleanup(AwgHelperRun *run) {
   if (run->supervisor == NULL) {
     run->group_cleanup_done = TRUE;
     return;
   }
   network_sidebar_awg_supervisor_poll_cleanup(run->supervisor);
-  run->group_cleanup_done = network_sidebar_awg_supervisor_groups_empty(run->supervisor);
+  run->group_cleanup_done =
+      network_sidebar_awg_supervisor_groups_empty(run->supervisor);
 }
 
-static void
-track_released_group(NetworkSidebarAwgHelperRunner *runner, pid_t process_group)
-{
+static void track_released_group(NetworkSidebarAwgHelperRunner *runner,
+                                 pid_t process_group) {
   pid_t waited;
 
   do
@@ -324,20 +295,18 @@ track_released_group(NetworkSidebarAwgHelperRunner *runner, pid_t process_group)
     mark_failed(runner);
 }
 
-static void
-detach_stalled_group_cleanup(AwgHelperRun *run)
-{
+static void detach_stalled_group_cleanup(AwgHelperRun *run) {
   g_autoptr(GArray) process_groups = g_array_new(FALSE, FALSE, sizeof(pid_t));
 
-  network_sidebar_awg_supervisor_detach_terminated_groups(run->supervisor, process_groups);
+  network_sidebar_awg_supervisor_detach_terminated_groups(run->supervisor,
+                                                          process_groups);
   for (guint i = 0; i < process_groups->len; i++)
     track_released_group(run->runner, g_array_index(process_groups, pid_t, i));
-  run->group_cleanup_done = network_sidebar_awg_supervisor_groups_empty(run->supervisor);
+  run->group_cleanup_done =
+      network_sidebar_awg_supervisor_groups_empty(run->supervisor);
 }
 
-static void
-complete_helper_supervision(AwgHelperRun *run)
-{
+static void complete_helper_supervision(AwgHelperRun *run) {
   gboolean clean_exit;
   gint64 now;
 
@@ -363,7 +332,8 @@ complete_helper_supervision(AwgHelperRun *run)
                run->helper_status == NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SUCCESS &&
                !network_sidebar_awg_supervisor_failed(run->supervisor);
   if (clean_exit) {
-    pid_t released_group = network_sidebar_awg_supervisor_finalize_release(run->supervisor);
+    pid_t released_group =
+        network_sidebar_awg_supervisor_finalize_release(run->supervisor);
 
     if (released_group > 0)
       track_released_group(run->runner, released_group);
@@ -377,32 +347,29 @@ complete_helper_supervision(AwgHelperRun *run)
   begin_supervisor_cleanup(run, SIGKILL);
   refresh_supervisor_cleanup(run);
   if (!run->profile_report && !run->group_cleanup_done &&
-      run->group_cleanup_deadline > 0 && monotonic_msec() >= run->group_cleanup_deadline)
+      run->group_cleanup_deadline > 0 &&
+      monotonic_msec() >= run->group_cleanup_deadline)
     detach_stalled_group_cleanup(run);
 }
 
-static void
-begin_stop(AwgHelperRun *run, RunStopReason reason)
-{
+static void begin_stop(AwgHelperRun *run, RunStopReason reason) {
   if (run->stop_reason == RUN_STOP_NONE)
     run->stop_reason = reason;
   close_fd(&run->helper_stdin_fd);
   close_fd(&run->helper_stdout_fd);
   run->helper_input_done = TRUE;
   run->helper_output_done = TRUE;
-  if (run->helper_pid <= 0 || run->helper_reaped ||
-      run->group_cleanup_done || run->force_kill_deadline != 0)
+  if (run->helper_pid <= 0 || run->helper_reaped || run->group_cleanup_done ||
+      run->force_kill_deadline != 0)
     return;
   if (!(reason == RUN_STOP_TIMEOUT && run->forward_timeout_sent &&
         run->deadlines.forward_at == run->deadlines.cleanup_at))
     signal_helper(run, SIGTERM);
   run->force_kill_deadline = network_sidebar_amneziawg_deadline_cap(
-    monotonic_msec(), run->deadlines.hard_at, HELPER_TERMINATION_GRACE_MSEC);
+      monotonic_msec(), run->deadlines.hard_at, HELPER_TERMINATION_GRACE_MSEC);
 }
 
-static gboolean
-maybe_finish_helper(AwgHelperRun *run)
-{
+static gboolean maybe_finish_helper(AwgHelperRun *run) {
   if (!run->helper_reaped || !run->group_cleanup_done ||
       !run->helper_input_done || !run->helper_output_done ||
       (run->supervisor != NULL &&
@@ -413,32 +380,25 @@ maybe_finish_helper(AwgHelperRun *run)
   return TRUE;
 }
 
-static gboolean
-set_nonblocking(int fd)
-{
+static gboolean set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL);
 
   return flags >= 0 && fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
 }
 
-static void
-fail_helper_io(AwgHelperRun *run)
-{
+static void fail_helper_io(AwgHelperRun *run) {
   run->helper_io_failed = TRUE;
   begin_stop(run, RUN_STOP_IO_FAILURE);
 }
 
-static void
-poll_supervisor(AwgHelperRun *run)
-{
-  if ((run->supervisor == NULL || !network_sidebar_awg_supervisor_poll(run->supervisor)) &&
+static void poll_supervisor(AwgHelperRun *run) {
+  if ((run->supervisor == NULL ||
+       !network_sidebar_awg_supervisor_poll(run->supervisor)) &&
       run->stop_reason == RUN_STOP_NONE)
     fail_helper_io(run);
 }
 
-static void
-write_helper_input(AwgHelperRun *run)
-{
+static void write_helper_input(AwgHelperRun *run) {
   const guint8 *data;
   gsize length;
 
@@ -446,11 +406,12 @@ write_helper_input(AwgHelperRun *run)
     return;
   data = g_bytes_get_data(run->config, &length);
   while (run->helper_input_offset < length) {
-    ssize_t written = write(run->helper_stdin_fd, data + run->helper_input_offset,
-                            length - run->helper_input_offset);
+    ssize_t written =
+        write(run->helper_stdin_fd, data + run->helper_input_offset,
+              length - run->helper_input_offset);
 
     if (written > 0) {
-      run->helper_input_offset += (gsize) written;
+      run->helper_input_offset += (gsize)written;
       continue;
     }
     if (written < 0 && errno == EINTR)
@@ -464,21 +425,19 @@ write_helper_input(AwgHelperRun *run)
   run->helper_input_done = TRUE;
 }
 
-static void
-read_helper_output(AwgHelperRun *run)
-{
+static void read_helper_output(AwgHelperRun *run) {
   guint8 buffer[4096];
 
   for (guint reads = 0; run->helper_stdout_fd >= 0 && reads < 16; reads++) {
     ssize_t count = read(run->helper_stdout_fd, buffer, sizeof(buffer));
 
     if (count > 0) {
-      if ((gsize) count > NETWORK_SIDEBAR_AMNEZIAWG_PROFILE_REPORT_MAX_SIZE -
-                           run->helper_output->len) {
+      if ((gsize)count > NETWORK_SIDEBAR_AMNEZIAWG_PROFILE_REPORT_MAX_SIZE -
+                             run->helper_output->len) {
         fail_helper_io(run);
         return;
       }
-      g_byte_array_append(run->helper_output, buffer, (guint) count);
+      g_byte_array_append(run->helper_output, buffer, (guint)count);
       continue;
     }
     if (count == 0) {
@@ -497,17 +456,18 @@ read_helper_output(AwgHelperRun *run)
   }
 }
 
-static void
-record_helper_reap(AwgHelperRun *run, pid_t helper_pid, int status, gboolean status_known)
-{
+static void record_helper_reap(AwgHelperRun *run, pid_t helper_pid, int status,
+                               gboolean status_known) {
   if (!status_known) {
     run->helper_status = NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SETUP_FAILED;
   } else if (WIFSIGNALED(status)) {
     run->helper_status = NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SIGNALED;
   } else if (!WIFEXITED(status) ||
-             !network_sidebar_amneziawg_helper_exit_is_valid(WEXITSTATUS(status)) ||
+             !network_sidebar_amneziawg_helper_exit_is_valid(
+                 WEXITSTATUS(status)) ||
              (!run->profile_report &&
-              WEXITSTATUS(status) == NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVENTORY_PARTIAL)) {
+              WEXITSTATUS(status) ==
+                  NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVENTORY_PARTIAL)) {
     run->helper_status = NETWORK_SIDEBAR_AMNEZIAWG_HELPER_CHILD_SETUP_FAILED;
   } else {
     run->helper_status = WEXITSTATUS(status);
@@ -517,14 +477,13 @@ record_helper_reap(AwgHelperRun *run, pid_t helper_pid, int status, gboolean sta
   run->helper_reaped = TRUE;
 }
 
-static void
-detach_stalled_helper(AwgHelperRun *run)
-{
+static void detach_stalled_helper(AwgHelperRun *run) {
   pid_t helper_pid = run->helper_pid;
 
   if (helper_pid <= 0 || run->helper_reaped)
     return;
-  g_hash_table_add(run->runner->pending_child_reaps, GINT_TO_POINTER(helper_pid));
+  g_hash_table_add(run->runner->pending_child_reaps,
+                   GINT_TO_POINTER(helper_pid));
   g_spawn_close_pid(helper_pid);
   run->helper_pid = 0;
   run->helper_reaped = TRUE;
@@ -537,14 +496,12 @@ detach_stalled_helper(AwgHelperRun *run)
   network_sidebar_awg_supervisor_abort(run->supervisor);
 }
 
-static gboolean
-helper_has_exited(AwgHelperRun *run)
-{
-  siginfo_t child_info = { 0 };
+static gboolean helper_has_exited(AwgHelperRun *run) {
+  siginfo_t child_info = {0};
   int wait_result;
 
   do
-    wait_result = waitid(P_PID, (id_t) run->helper_pid, &child_info,
+    wait_result = waitid(P_PID, (id_t)run->helper_pid, &child_info,
                          WEXITED | WNOHANG | WNOWAIT);
   while (wait_result != 0 && errno == EINTR);
   if (wait_result == 0)
@@ -587,9 +544,7 @@ helper_lost:
   return FALSE;
 }
 
-static void
-reap_helper(AwgHelperRun *run)
-{
+static void reap_helper(AwgHelperRun *run) {
   pid_t helper_pid = run->helper_pid;
   pid_t waited;
   int status = 0;
@@ -614,9 +569,7 @@ reap_helper(AwgHelperRun *run)
   record_helper_reap(run, helper_pid, status, waited == helper_pid);
 }
 
-static gboolean
-helper_poll_cb(gpointer user_data)
-{
+static gboolean helper_poll_cb(gpointer user_data) {
   AwgHelperRun *run = user_data;
   gint64 now;
   gboolean child_exited = FALSE;
@@ -627,7 +580,8 @@ helper_poll_cb(gpointer user_data)
     child_exited = helper_has_exited(run);
   now = monotonic_msec();
   if (run->stop_reason == RUN_STOP_NONE && !run->forward_timeout_sent &&
-      !run->helper_reaped && !child_exited && now >= run->deadlines.forward_at &&
+      !run->helper_reaped && !child_exited &&
+      now >= run->deadlines.forward_at &&
       !network_sidebar_awg_supervisor_release_pending(run->supervisor)) {
     network_sidebar_awg_supervisor_disable_release(run->supervisor);
     signal_helper(run, SIGTERM);
@@ -641,17 +595,19 @@ helper_poll_cb(gpointer user_data)
       network_sidebar_awg_supervisor_channel_closed(run->supervisor)) {
     if (run->supervisor_close_observed_at == 0)
       run->supervisor_close_observed_at = now;
-    else if (run->stop_reason == RUN_STOP_NONE && now - run->supervisor_close_observed_at >= 100)
+    else if (run->stop_reason == RUN_STOP_NONE &&
+             now - run->supervisor_close_observed_at >= 100)
       fail_helper_io(run);
   }
 
-  if (run->stop_reason != RUN_STOP_NONE && !run->helper_reaped && now >= run->force_kill_deadline) {
+  if (run->stop_reason != RUN_STOP_NONE && !run->helper_reaped &&
+      now >= run->force_kill_deadline) {
     if (!run->helper_cleanup_kill_requested) {
       signal_helper(run, SIGINT);
       begin_supervisor_cleanup(run, SIGTERM);
       run->helper_cleanup_kill_requested = TRUE;
       run->force_kill_deadline = network_sidebar_amneziawg_deadline_cap(
-        now, run->deadlines.hard_at, HELPER_CLEANUP_REAP_GRACE_MSEC);
+          now, run->deadlines.hard_at, HELPER_CLEANUP_REAP_GRACE_MSEC);
     } else if (!run->helper_force_kill_sent) {
       signal_helper(run, SIGKILL);
       begin_supervisor_cleanup(run, SIGKILL);
@@ -683,9 +639,7 @@ helper_poll_cb(gpointer user_data)
   return G_SOURCE_CONTINUE;
 }
 
-static void
-helper_child_setup(gpointer user_data)
-{
+static void helper_child_setup(gpointer user_data) {
   const pid_t *expected_parent = user_data;
 
   if (setpgid(0, 0) != 0 || prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) != 0 ||
@@ -693,30 +647,36 @@ helper_child_setup(gpointer user_data)
     _exit(127);
 }
 
-static gboolean
-spawn_helper(AwgHelperRun *run)
-{
+static gboolean spawn_helper(AwgHelperRun *run) {
   char forward_deadline[32];
   char cleanup_deadline[32];
   const char *argv[] = {
-    NETWORK_SIDEBAR_INSTALLED_AWG_HELPER_PATH, run->operation, run->name,
-    forward_deadline, cleanup_deadline, NULL,
+      NETWORK_SIDEBAR_INSTALLED_AWG_HELPER_PATH,
+      run->operation,
+      run->name,
+      forward_deadline,
+      cleanup_deadline,
+      NULL,
   };
   g_autoptr(GError) error = NULL;
   pid_t expected_parent = getpid();
-  GSpawnFlags flags = G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_CLOEXEC_PIPES | G_SPAWN_STDERR_TO_DEV_NULL;
-  int control[2] = { -1, -1 };
+  GSpawnFlags flags = G_SPAWN_DO_NOT_REAP_CHILD | G_SPAWN_CLOEXEC_PIPES |
+                      G_SPAWN_STDERR_TO_DEV_NULL;
+  int control[2] = {-1, -1};
   int source_fds[1];
-  int target_fds[1] = { NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_FD };
+  int target_fds[1] = {NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_FD};
   gboolean io_setup_failed = FALSE;
   gint64 started_at = monotonic_msec();
 
   run->capabilities = helper_capabilities();
   if ((run->capabilities & NETWORK_SIDEBAR_AMNEZIAWG_CAPABILITY_HELPER) == 0 ||
-      !network_sidebar_amneziawg_deadlines_init(run->operation, started_at, &run->deadlines))
+      !network_sidebar_amneziawg_deadlines_init(run->operation, started_at,
+                                                &run->deadlines))
     return FALSE;
-  g_snprintf(forward_deadline, sizeof(forward_deadline), "%" G_GINT64_FORMAT, run->deadlines.forward_at);
-  g_snprintf(cleanup_deadline, sizeof(cleanup_deadline), "%" G_GINT64_FORMAT, run->deadlines.cleanup_at);
+  g_snprintf(forward_deadline, sizeof(forward_deadline), "%" G_GINT64_FORMAT,
+             run->deadlines.forward_at);
+  g_snprintf(cleanup_deadline, sizeof(cleanup_deadline), "%" G_GINT64_FORMAT,
+             run->deadlines.cleanup_at);
   run->helper_input_done = run->config == NULL;
   run->helper_output_done = !run->profile_report;
   if (!run->profile_report)
@@ -725,10 +685,10 @@ spawn_helper(AwgHelperRun *run)
     return FALSE;
   source_fds[0] = control[1];
   if (!g_spawn_async_with_pipes_and_fds(
-        NULL, argv, NULL, flags, helper_child_setup, &expected_parent,
-        -1, -1, -1, source_fds, target_fds, G_N_ELEMENTS(source_fds),
-        &run->helper_pid, run->config != NULL ? &run->helper_stdin_fd : NULL,
-        run->profile_report ? &run->helper_stdout_fd : NULL, NULL, &error)) {
+          NULL, argv, NULL, flags, helper_child_setup, &expected_parent, -1, -1,
+          -1, source_fds, target_fds, G_N_ELEMENTS(source_fds),
+          &run->helper_pid, run->config != NULL ? &run->helper_stdin_fd : NULL,
+          run->profile_report ? &run->helper_stdout_fd : NULL, NULL, &error)) {
     close_fd(&control[1]);
     close_fd(&control[0]);
     run->helper_pid = 0;
@@ -736,28 +696,30 @@ spawn_helper(AwgHelperRun *run)
   }
   close_fd(&control[1]);
   run->supervisor = network_sidebar_awg_supervisor_new(
-    control[0], g_strcmp0(run->operation, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_UP) == 0);
+      control[0],
+      g_strcmp0(run->operation, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_UP) == 0);
   if (run->supervisor == NULL) {
     close_fd(&control[0]);
     io_setup_failed = TRUE;
   }
-  if (setpgid(run->helper_pid, run->helper_pid) != 0 && errno != EACCES && errno != ESRCH)
+  if (setpgid(run->helper_pid, run->helper_pid) != 0 && errno != EACCES &&
+      errno != ESRCH)
     io_setup_failed = TRUE;
   if (run->helper_stdin_fd >= 0 && !set_nonblocking(run->helper_stdin_fd))
     io_setup_failed = TRUE;
   if (run->helper_stdout_fd >= 0 && !set_nonblocking(run->helper_stdout_fd))
     io_setup_failed = TRUE;
   if (run->profile_report)
-    run->helper_output = g_byte_array_sized_new(NETWORK_SIDEBAR_AMNEZIAWG_PROFILE_REPORT_MAX_SIZE);
-  run->helper_source = g_timeout_add(HELPER_POLL_INTERVAL_MSEC, helper_poll_cb, run);
+    run->helper_output = g_byte_array_sized_new(
+        NETWORK_SIDEBAR_AMNEZIAWG_PROFILE_REPORT_MAX_SIZE);
+  run->helper_source =
+      g_timeout_add(HELPER_POLL_INTERVAL_MSEC, helper_poll_cb, run);
   if (io_setup_failed)
     fail_helper_io(run);
   return TRUE;
 }
 
-static gboolean
-reap_children_cb(gpointer user_data)
-{
+static gboolean reap_children_cb(gpointer user_data) {
   NetworkSidebarAwgHelperRunner *runner = user_data;
   GHashTableIter iter;
   gpointer key;
@@ -783,12 +745,11 @@ reap_children_cb(gpointer user_data)
   return G_SOURCE_CONTINUE;
 }
 
-NetworkSidebarAwgHelperRunner *
-network_sidebar_awg_helper_runner_new(const NetworkSidebarAwgHelperRunnerCallbacks *callbacks,
-                                     gpointer user_data)
-{
+NetworkSidebarAwgHelperRunner *network_sidebar_awg_helper_runner_new(
+    const NetworkSidebarAwgHelperRunnerCallbacks *callbacks,
+    gpointer user_data) {
   NetworkSidebarAwgHelperRunner *runner;
-  struct sigaction action = { 0 };
+  struct sigaction action = {0};
 
   if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) != 0)
     return NULL;
@@ -805,14 +766,13 @@ network_sidebar_awg_helper_runner_new(const NetworkSidebarAwgHelperRunnerCallbac
   runner->user_data = user_data;
   runner->released_groups = g_hash_table_new(g_direct_hash, g_direct_equal);
   runner->pending_child_reaps = g_hash_table_new(g_direct_hash, g_direct_equal);
-  runner->reap_source = g_timeout_add_seconds(RELEASED_GROUP_REAP_INTERVAL_SECONDS,
-                                              reap_children_cb, runner);
+  runner->reap_source = g_timeout_add_seconds(
+      RELEASED_GROUP_REAP_INTERVAL_SECONDS, reap_children_cb, runner);
   return runner;
 }
 
-void
-network_sidebar_awg_helper_runner_free(NetworkSidebarAwgHelperRunner *runner)
-{
+void network_sidebar_awg_helper_runner_free(
+    NetworkSidebarAwgHelperRunner *runner) {
   if (runner == NULL)
     return;
   g_return_if_fail(!network_sidebar_awg_helper_runner_is_busy(runner));
@@ -822,13 +782,9 @@ network_sidebar_awg_helper_runner_free(NetworkSidebarAwgHelperRunner *runner)
   g_free(runner);
 }
 
-gboolean
-network_sidebar_awg_helper_runner_start(NetworkSidebarAwgHelperRunner *runner,
-                                        const char *operation,
-                                        const char *name,
-                                        const guint8 *config,
-                                        gsize config_length)
-{
+gboolean network_sidebar_awg_helper_runner_start(
+    NetworkSidebarAwgHelperRunner *runner, const char *operation,
+    const char *name, const guint8 *config, gsize config_length) {
   AwgHelperRun *run;
 
   g_return_val_if_fail(runner != NULL, FALSE);
@@ -839,7 +795,9 @@ network_sidebar_awg_helper_runner_start(NetworkSidebarAwgHelperRunner *runner,
   run->runner = runner;
   run->operation = g_strdup(operation);
   run->name = g_strdup(name);
-  run->profile_report = g_strcmp0(operation, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_LIST_PROFILES) == 0;
+  run->profile_report =
+      g_strcmp0(operation, NETWORK_SIDEBAR_AMNEZIAWG_OPERATION_LIST_PROFILES) ==
+      0;
   run->helper_stdin_fd = -1;
   run->helper_stdout_fd = -1;
   if (config_length != 0)
@@ -852,38 +810,37 @@ network_sidebar_awg_helper_runner_start(NetworkSidebarAwgHelperRunner *runner,
   return TRUE;
 }
 
-void
-network_sidebar_awg_helper_runner_stop(NetworkSidebarAwgHelperRunner *runner,
-                                       NetworkSidebarAwgHelperStopReason reason)
-{
+void network_sidebar_awg_helper_runner_stop(
+    NetworkSidebarAwgHelperRunner *runner,
+    NetworkSidebarAwgHelperStopReason reason) {
   AwgHelperRun *run;
 
   if (runner == NULL || runner->run == NULL)
     return;
   run = runner->run;
-  begin_stop(run, reason == NETWORK_SIDEBAR_AWG_HELPER_STOP_PREEMPTED ?
-                   RUN_STOP_PREEMPTED : RUN_STOP_SHUTDOWN);
-  if (run->profile_report && reason == NETWORK_SIDEBAR_AWG_HELPER_STOP_PREEMPTED)
+  begin_stop(run, reason == NETWORK_SIDEBAR_AWG_HELPER_STOP_PREEMPTED
+                      ? RUN_STOP_PREEMPTED
+                      : RUN_STOP_SHUTDOWN);
+  if (run->profile_report &&
+      reason == NETWORK_SIDEBAR_AWG_HELPER_STOP_PREEMPTED)
     publish_result(run);
 }
 
-gboolean
-network_sidebar_awg_helper_runner_is_running(const NetworkSidebarAwgHelperRunner *runner)
-{
+gboolean network_sidebar_awg_helper_runner_is_running(
+    const NetworkSidebarAwgHelperRunner *runner) {
   return runner != NULL && runner->run != NULL;
 }
 
-gboolean
-network_sidebar_awg_helper_runner_is_busy(NetworkSidebarAwgHelperRunner *runner)
-{
+gboolean network_sidebar_awg_helper_runner_is_busy(
+    NetworkSidebarAwgHelperRunner *runner) {
   if (runner == NULL)
     return FALSE;
   reap_pending_children(runner);
-  return runner->run != NULL || g_hash_table_size(runner->pending_child_reaps) != 0;
+  return runner->run != NULL ||
+         g_hash_table_size(runner->pending_child_reaps) != 0;
 }
 
-gboolean
-network_sidebar_awg_helper_runner_failed(const NetworkSidebarAwgHelperRunner *runner)
-{
+gboolean network_sidebar_awg_helper_runner_failed(
+    const NetworkSidebarAwgHelperRunner *runner) {
   return runner != NULL && runner->failed;
 }

@@ -23,7 +23,7 @@
 #endif
 
 static const char temp_config_alphabet[] =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
 
 struct _AwgHelperStorage {
   int config;
@@ -37,22 +37,17 @@ struct _AwgHelperStorageIterator {
   DIR *directory;
 };
 
-static gboolean
-directory_is_trusted(int fd)
-{
+static gboolean directory_is_trusted(int fd) {
   struct stat status;
 
-  return fstat(fd, &status) == 0 &&
-         S_ISDIR(status.st_mode) &&
-         status.st_uid == 0 &&
-         status.st_gid == 0 &&
+  return fstat(fd, &status) == 0 && S_ISDIR(status.st_mode) &&
+         status.st_uid == 0 && status.st_gid == 0 &&
          (status.st_mode & 0022) == 0;
 }
 
-static int
-open_existing_dir_at(int parent, const char *name)
-{
-  int fd = openat(parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+static int open_existing_dir_at(int parent, const char *name) {
+  int fd =
+      openat(parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
 
   if (fd < 0)
     return -1;
@@ -64,9 +59,8 @@ open_existing_dir_at(int parent, const char *name)
   return fd;
 }
 
-static int
-ensure_dir_at(int parent, const char *name, mode_t mode, mode_t required_access)
-{
+static int ensure_dir_at(int parent, const char *name, mode_t mode,
+                         mode_t required_access) {
   gboolean created = FALSE;
   struct stat status;
   int fd;
@@ -101,28 +95,27 @@ ensure_dir_at(int parent, const char *name, mode_t mode, mode_t required_access)
   return fd;
 }
 
-static gboolean
-lock_helper_until(int fd, gint64 deadline)
-{
+static gboolean lock_helper_until(int fd, gint64 deadline) {
   for (;;) {
-    NetworkSidebarAmneziaWGHelperExit stop = awg_helper_phase_stop_status(deadline);
+    NetworkSidebarAmneziaWGHelperExit stop =
+        awg_helper_phase_stop_status(deadline);
 
     if (stop != NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SUCCESS) {
-      errno = stop == NETWORK_SIDEBAR_AMNEZIAWG_HELPER_TIMED_OUT ? ETIMEDOUT : EINTR;
+      errno = stop == NETWORK_SIDEBAR_AMNEZIAWG_HELPER_TIMED_OUT ? ETIMEDOUT
+                                                                 : EINTR;
       return FALSE;
     }
     if (flock(fd, LOCK_EX | LOCK_NB) == 0)
       return TRUE;
     if (errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)
       return FALSE;
-    if (network_sidebar_amneziawg_process_poll(NULL, 0, 25) < 0 && errno != EINTR)
+    if (network_sidebar_amneziawg_process_poll(NULL, 0, 25) < 0 &&
+        errno != EINTR)
       return FALSE;
   }
 }
 
-static int
-open_helper_lock(int runtime, gint64 deadline)
-{
+static int open_helper_lock(int runtime, gint64 deadline) {
   int flags = O_RDWR | O_NOFOLLOW | O_CLOEXEC;
   int fd = openat(runtime, ".helper.lock", flags | O_CREAT | O_EXCL, 0600);
   gboolean created = fd >= 0;
@@ -151,16 +144,14 @@ fail:
   return -1;
 }
 
-AwgHelperStorage *
-awg_helper_storage_open_runtime(gint64 deadline)
-{
+AwgHelperStorage *awg_helper_storage_open_runtime(gint64 deadline) {
   AwgHelperStorage *storage = g_new0(AwgHelperStorage, 1);
   int root = -1;
   int run = -1;
   int run_sidebar = -1;
   int saved_errno;
 
-  *storage = (AwgHelperStorage) { -1, -1, -1, -1, -1 };
+  *storage = (AwgHelperStorage){-1, -1, -1, -1, -1};
   root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (root < 0 || !directory_is_trusted(root))
     goto fail;
@@ -174,10 +165,8 @@ awg_helper_storage_open_runtime(gint64 deadline)
   storage->runtime = ensure_dir_at(run_sidebar, "amneziawg", 0755, 0055);
   if (storage->runtime < 0)
     goto fail;
-  storage->runtime_configs = ensure_dir_at(storage->runtime,
-                                           ".configs",
-                                           0700,
-                                           0700);
+  storage->runtime_configs =
+      ensure_dir_at(storage->runtime, ".configs", 0700, 0700);
   if (storage->runtime_configs < 0)
     goto fail;
   {
@@ -207,9 +196,7 @@ fail:
   return NULL;
 }
 
-gboolean
-awg_helper_storage_open_profiles(AwgHelperStorage *storage)
-{
+gboolean awg_helper_storage_open_profiles(AwgHelperStorage *storage) {
   int root = -1;
   int etc = -1;
   int amnezia = -1;
@@ -263,9 +250,7 @@ fail:
   return FALSE;
 }
 
-void
-awg_helper_storage_free(AwgHelperStorage *storage)
-{
+void awg_helper_storage_free(AwgHelperStorage *storage) {
   if (storage == NULL)
     return;
   awg_helper_close_fd(&storage->runtime_configs);
@@ -277,43 +262,30 @@ awg_helper_storage_free(AwgHelperStorage *storage)
   g_free(storage);
 }
 
-gboolean
-awg_helper_storage_make_config_filename(const char *name,
-                                        char *filename,
-                                        gsize size)
-{
+gboolean awg_helper_storage_make_config_filename(const char *name,
+                                                 char *filename, gsize size) {
   int written = snprintf(filename, size, "%s.conf", name);
 
-  return written > 0 && (gsize) written < size;
+  return written > 0 && (gsize)written < size;
 }
 
-gboolean
-awg_helper_storage_make_runtime_config_path(const char *name,
-                                            char *path,
-                                            gsize size)
-{
-  int written = snprintf(path,
-                         size,
-                         "%s/%s.conf",
-                         NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFIG_DIR,
-                         name);
+gboolean awg_helper_storage_make_runtime_config_path(const char *name,
+                                                     char *path, gsize size) {
+  int written = snprintf(path, size, "%s/%s.conf",
+                         NETWORK_SIDEBAR_AMNEZIAWG_RUNTIME_CONFIG_DIR, name);
 
-  return written > 0 && (gsize) written < size;
+  return written > 0 && (gsize)written < size;
 }
 
-gboolean
-awg_helper_storage_make_dns_filename(const char *name,
-                                     char *filename,
-                                     gsize size)
-{
+gboolean awg_helper_storage_make_dns_filename(const char *name, char *filename,
+                                              gsize size) {
   int written = snprintf(filename, size, "%s.dns", name);
 
-  return written > 0 && (gsize) written < size;
+  return written > 0 && (gsize)written < size;
 }
 
-static int
-storage_area_fd(const AwgHelperStorage *storage, AwgHelperStorageArea area)
-{
+static int storage_area_fd(const AwgHelperStorage *storage,
+                           AwgHelperStorageArea area) {
   switch (area) {
   case AWG_HELPER_STORAGE_CONFIG:
     return storage->config;
@@ -328,16 +300,15 @@ storage_area_fd(const AwgHelperStorage *storage, AwgHelperStorageArea area)
   }
 }
 
-static AwgHelperEntryState
-secure_file_state_at(int dir, const char *name, mode_t mode)
-{
+static AwgHelperEntryState secure_file_state_at(int dir, const char *name,
+                                                mode_t mode) {
   struct stat before;
   struct stat after;
   int fd;
 
   if (fstatat(dir, name, &before, AT_SYMLINK_NOFOLLOW) != 0)
-    return errno == ENOENT ? AWG_HELPER_ENTRY_MISSING :
-                            AWG_HELPER_ENTRY_INVALID;
+    return errno == ENOENT ? AWG_HELPER_ENTRY_MISSING
+                           : AWG_HELPER_ENTRY_INVALID;
   if (!S_ISREG(before.st_mode) || before.st_uid != 0 || before.st_gid != 0 ||
       before.st_nlink != 1 || (before.st_mode & 0777) != mode)
     return AWG_HELPER_ENTRY_INVALID;
@@ -359,38 +330,27 @@ secure_file_state_at(int dir, const char *name, mode_t mode)
 AwgHelperEntryState
 awg_helper_storage_secure_file_state(const AwgHelperStorage *storage,
                                      AwgHelperStorageArea area,
-                                     const char *name,
-                                     mode_t mode)
-{
+                                     const char *name, mode_t mode) {
   return secure_file_state_at(storage_area_fd(storage, area), name, mode);
 }
 
 AwgHelperEntryState
 awg_helper_storage_config_security_state(const AwgHelperStorage *storage,
-                                         const char *config_name)
-{
+                                         const char *config_name) {
   struct stat status;
 
-  if (fstatat(storage->config,
-              config_name,
-              &status,
-              AT_SYMLINK_NOFOLLOW) != 0)
-    return errno == ENOENT ? AWG_HELPER_ENTRY_MISSING :
-                            AWG_HELPER_ENTRY_INVALID;
+  if (fstatat(storage->config, config_name, &status, AT_SYMLINK_NOFOLLOW) != 0)
+    return errno == ENOENT ? AWG_HELPER_ENTRY_MISSING
+                           : AWG_HELPER_ENTRY_INVALID;
   if (!S_ISREG(status.st_mode) || status.st_uid != 0 || status.st_gid != 0 ||
       status.st_nlink != 1 || (status.st_mode & 0777) != 0600)
     return AWG_HELPER_ENTRY_INVALID;
   return AWG_HELPER_ENTRY_VALID;
 }
 
-static gboolean
-read_secure_file_at(int dir,
-                    const char *name,
-                    mode_t mode,
-                    gsize maximum_size,
-                    guint8 **contents,
-                    gsize *length)
-{
+static gboolean read_secure_file_at(int dir, const char *name, mode_t mode,
+                                    gsize maximum_size, guint8 **contents,
+                                    gsize *length) {
   struct stat before;
   struct stat after;
   guint8 *buffer = NULL;
@@ -402,21 +362,21 @@ read_secure_file_at(int dir,
   if (fstatat(dir, name, &before, AT_SYMLINK_NOFOLLOW) != 0 ||
       !S_ISREG(before.st_mode) || before.st_uid != 0 || before.st_gid != 0 ||
       before.st_nlink != 1 || (before.st_mode & 0777) != mode ||
-      before.st_size < 0 || (guint64) before.st_size > maximum_size)
+      before.st_size < 0 || (guint64)before.st_size > maximum_size)
     return FALSE;
   fd = openat(dir, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0 || fstat(fd, &after) != 0 || after.st_dev != before.st_dev ||
       after.st_ino != before.st_ino)
     goto fail;
-  buffer = g_malloc(MAX((gsize) before.st_size, 1u));
-  while (used < (gsize) before.st_size) {
-    ssize_t count = read(fd, buffer + used, (gsize) before.st_size - used);
+  buffer = g_malloc(MAX((gsize)before.st_size, 1u));
+  while (used < (gsize)before.st_size) {
+    ssize_t count = read(fd, buffer + used, (gsize)before.st_size - used);
 
     if (count < 0 && errno == EINTR)
       continue;
     if (count <= 0)
       goto fail;
-    used += (gsize) count;
+    used += (gsize)count;
   }
   if (fstat(fd, &after) != 0 || after.st_dev != before.st_dev ||
       after.st_ino != before.st_ino || after.st_size != before.st_size)
@@ -428,37 +388,24 @@ read_secure_file_at(int dir,
 
 fail:
   awg_helper_close_fd(&fd);
-  network_sidebar_amneziawg_secret_free(buffer,
-                                         MAX((gsize) before.st_size, 1u));
+  network_sidebar_amneziawg_secret_free(buffer, MAX((gsize)before.st_size, 1u));
   return FALSE;
 }
 
-gboolean
-awg_helper_storage_read_secure_file(const AwgHelperStorage *storage,
-                                    AwgHelperStorageArea area,
-                                    const char *name,
-                                    mode_t mode,
-                                    gsize maximum_size,
-                                    guint8 **contents,
-                                    gsize *length)
-{
-  return read_secure_file_at(storage_area_fd(storage, area),
-                             name,
-                             mode,
-                             maximum_size,
-                             contents,
-                             length);
+gboolean awg_helper_storage_read_secure_file(const AwgHelperStorage *storage,
+                                             AwgHelperStorageArea area,
+                                             const char *name, mode_t mode,
+                                             gsize maximum_size,
+                                             guint8 **contents, gsize *length) {
+  return read_secure_file_at(storage_area_fd(storage, area), name, mode,
+                             maximum_size, contents, length);
 }
 
-static gboolean
-same_config_metadata(const struct stat *left, const struct stat *right)
-{
-  return left->st_dev == right->st_dev &&
-         left->st_ino == right->st_ino &&
-         left->st_mode == right->st_mode &&
-         left->st_uid == right->st_uid &&
-         left->st_gid == right->st_gid &&
-         left->st_nlink == right->st_nlink &&
+static gboolean same_config_metadata(const struct stat *left,
+                                     const struct stat *right) {
+  return left->st_dev == right->st_dev && left->st_ino == right->st_ino &&
+         left->st_mode == right->st_mode && left->st_uid == right->st_uid &&
+         left->st_gid == right->st_gid && left->st_nlink == right->st_nlink &&
          left->st_size == right->st_size &&
          left->st_mtim.tv_sec == right->st_mtim.tv_sec &&
          left->st_mtim.tv_nsec == right->st_mtim.tv_nsec &&
@@ -468,11 +415,9 @@ same_config_metadata(const struct stat *left, const struct stat *right)
 
 NetworkSidebarAmneziaWGHelperExit
 awg_helper_storage_read_config(const AwgHelperStorage *storage,
-                               const char *config_name,
-                               guint8 **contents_out,
+                               const char *config_name, guint8 **contents_out,
                                gsize *length_out,
-                               AwgHelperStorageIdentity *identity)
-{
+                               AwgHelperStorageIdentity *identity) {
   struct stat before;
   struct stat opened;
   struct stat after;
@@ -480,35 +425,29 @@ awg_helper_storage_read_config(const AwgHelperStorage *storage,
   guint8 *contents = NULL;
   gsize used = 0;
   NetworkSidebarAmneziaWGHelperExit result =
-    NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED;
+      NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED;
   int fd = -1;
 
   *contents_out = NULL;
   *length_out = 0;
-  if (fstatat(storage->config,
-              config_name,
-              &before,
-              AT_SYMLINK_NOFOLLOW) != 0)
-    return errno == ENOENT ? NETWORK_SIDEBAR_AMNEZIAWG_HELPER_NOT_FOUND :
-                            NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED;
+  if (fstatat(storage->config, config_name, &before, AT_SYMLINK_NOFOLLOW) != 0)
+    return errno == ENOENT ? NETWORK_SIDEBAR_AMNEZIAWG_HELPER_NOT_FOUND
+                           : NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED;
   if (!S_ISREG(before.st_mode) || before.st_uid != 0 || before.st_gid != 0 ||
       before.st_nlink != 1 || (before.st_mode & 0777) != 0600)
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_FILESYSTEM_FAILED;
   if (before.st_size < 0 ||
-      (guint64) before.st_size > NETWORK_SIDEBAR_AMNEZIAWG_MAX_CONFIG_SIZE)
+      (guint64)before.st_size > NETWORK_SIDEBAR_AMNEZIAWG_MAX_CONFIG_SIZE)
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVALID_CONFIG;
 
-  fd = openat(storage->config,
-              config_name,
-              O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+  fd = openat(storage->config, config_name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0 || fstat(fd, &opened) != 0 ||
       !same_config_metadata(&before, &opened))
     goto out;
 
   contents = g_malloc(NETWORK_SIDEBAR_AMNEZIAWG_MAX_CONFIG_SIZE + 1);
   while (used <= NETWORK_SIDEBAR_AMNEZIAWG_MAX_CONFIG_SIZE) {
-    ssize_t count = read(fd,
-                         contents + used,
+    ssize_t count = read(fd, contents + used,
                          NETWORK_SIDEBAR_AMNEZIAWG_MAX_CONFIG_SIZE + 1 - used);
 
     if (count < 0) {
@@ -519,18 +458,16 @@ awg_helper_storage_read_config(const AwgHelperStorage *storage,
     }
     if (count == 0)
       break;
-    used += (gsize) count;
+    used += (gsize)count;
   }
   if (used > NETWORK_SIDEBAR_AMNEZIAWG_MAX_CONFIG_SIZE) {
     result = NETWORK_SIDEBAR_AMNEZIAWG_HELPER_INVALID_CONFIG;
     goto out;
   }
-  if (used != (gsize) opened.st_size ||
-      fstat(fd, &after) != 0 || !same_config_metadata(&opened, &after) ||
-      fstatat(storage->config,
-              config_name,
-              &current,
-              AT_SYMLINK_NOFOLLOW) != 0 ||
+  if (used != (gsize)opened.st_size || fstat(fd, &after) != 0 ||
+      !same_config_metadata(&opened, &after) ||
+      fstatat(storage->config, config_name, &current, AT_SYMLINK_NOFOLLOW) !=
+          0 ||
       !same_config_metadata(&after, &current))
     goto out;
   if (identity != NULL)
@@ -552,9 +489,7 @@ out:
 
 static gboolean remove_entry_and_sync_at(int dir, const char *name);
 
-static int
-create_temp_config_at(int dir, char *name, gsize name_size)
-{
+static int create_temp_config_at(int dir, char *name, gsize name_size) {
   if (name_size <
       NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH + sizeof(".conf")) {
     errno = ENAMETOOLONG;
@@ -568,8 +503,7 @@ create_temp_config_at(int dir, char *name, gsize name_size)
 
     while (random_offset < sizeof(random_bytes)) {
       ssize_t count = getrandom(random_bytes + random_offset,
-                                sizeof(random_bytes) - random_offset,
-                                0);
+                                sizeof(random_bytes) - random_offset, 0);
       if (count < 0) {
         if (errno == EINTR)
           continue;
@@ -579,18 +513,15 @@ create_temp_config_at(int dir, char *name, gsize name_size)
         errno = EIO;
         return -1;
       }
-      random_offset += (gsize) count;
+      random_offset += (gsize)count;
     }
 
     name[0] = 'n';
     for (gsize i = 0; i < sizeof(random_bytes); i++)
       name[i + 1] = temp_config_alphabet[random_bytes[i] & 63];
-    memcpy(name + NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH,
-           ".conf",
+    memcpy(name + NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH, ".conf",
            sizeof(".conf"));
-    fd = openat(dir,
-                name,
-                O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+    fd = openat(dir, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
                 0600);
     if (fd >= 0)
       return fd;
@@ -601,15 +532,9 @@ create_temp_config_at(int dir, char *name, gsize name_size)
   return -1;
 }
 
-gboolean
-awg_helper_storage_write_staging_candidate(
-  const AwgHelperStorage *storage,
-  const guint8 *contents,
-  gsize length,
-  char *temp_name,
-  gsize temp_name_size,
-  gboolean *candidate_created)
-{
+gboolean awg_helper_storage_write_staging_candidate(
+    const AwgHelperStorage *storage, const guint8 *contents, gsize length,
+    char *temp_name, gsize temp_name_size, gboolean *candidate_created) {
   int temp;
 
   *candidate_created = FALSE;
@@ -626,14 +551,10 @@ awg_helper_storage_write_staging_candidate(
   return TRUE;
 }
 
-static gboolean
-atomic_write_at(int dir,
-                const char *target,
-                const guint8 *contents,
-                gsize length,
-                mode_t mode)
-{
-  char temp_name[64] = { 0 };
+static gboolean atomic_write_at(int dir, const char *target,
+                                const guint8 *contents, gsize length,
+                                mode_t mode) {
+  char temp_name[64] = {0};
   int temp = create_temp_config_at(dir, temp_name, sizeof(temp_name));
 
   if (temp < 0)
@@ -652,24 +573,16 @@ atomic_write_at(int dir,
   return secure_file_state_at(dir, target, mode) == AWG_HELPER_ENTRY_VALID;
 }
 
-gboolean
-awg_helper_storage_atomic_write(const AwgHelperStorage *storage,
-                                AwgHelperStorageArea area,
-                                const char *target,
-                                const guint8 *contents,
-                                gsize length,
-                                mode_t mode)
-{
-  return atomic_write_at(storage_area_fd(storage, area),
-                         target,
-                         contents,
-                         length,
-                         mode);
+gboolean awg_helper_storage_atomic_write(const AwgHelperStorage *storage,
+                                         AwgHelperStorageArea area,
+                                         const char *target,
+                                         const guint8 *contents, gsize length,
+                                         mode_t mode) {
+  return atomic_write_at(storage_area_fd(storage, area), target, contents,
+                         length, mode);
 }
 
-static gboolean
-remove_entry_and_sync_at(int dir, const char *name)
-{
+static gboolean remove_entry_and_sync_at(int dir, const char *name) {
   if (unlinkat(dir, name, 0) != 0) {
     if (errno != ENOENT)
       return FALSE;
@@ -677,100 +590,72 @@ remove_entry_and_sync_at(int dir, const char *name)
   return fsync(dir) == 0;
 }
 
-gboolean
-awg_helper_storage_remove_and_sync(const AwgHelperStorage *storage,
-                                   AwgHelperStorageArea area,
-                                   const char *name)
-{
+gboolean awg_helper_storage_remove_and_sync(const AwgHelperStorage *storage,
+                                            AwgHelperStorageArea area,
+                                            const char *name) {
   return remove_entry_and_sync_at(storage_area_fd(storage, area), name);
 }
 
-gboolean
-awg_helper_storage_unlink_staging(const AwgHelperStorage *storage,
-                                  const char *name)
-{
+gboolean awg_helper_storage_unlink_staging(const AwgHelperStorage *storage,
+                                           const char *name) {
   return unlinkat(storage->staging, name, 0) == 0;
 }
 
 gboolean
 awg_helper_storage_rename_staging_noreplace(const AwgHelperStorage *storage,
                                             const char *temp_name,
-                                            const char *config_name)
-{
-  return renameat2(storage->staging,
-                   temp_name,
-                   storage->config,
-                   config_name,
+                                            const char *config_name) {
+  return renameat2(storage->staging, temp_name, storage->config, config_name,
                    RENAME_NOREPLACE) == 0;
 }
 
 gboolean
 awg_helper_storage_exchange_staging_config(const AwgHelperStorage *storage,
                                            const char *temp_name,
-                                           const char *config_name)
-{
-  return renameat2(storage->staging,
-                   temp_name,
-                   storage->config,
-                   config_name,
+                                           const char *config_name) {
+  return renameat2(storage->staging, temp_name, storage->config, config_name,
                    RENAME_EXCHANGE) == 0;
 }
 
 gboolean
-awg_helper_storage_sync_config_and_staging(const AwgHelperStorage *storage)
-{
+awg_helper_storage_sync_config_and_staging(const AwgHelperStorage *storage) {
   return fsync(storage->config) == 0 && fsync(storage->staging) == 0;
 }
 
-gboolean
-awg_helper_storage_sync_staging(const AwgHelperStorage *storage)
-{
+gboolean awg_helper_storage_sync_staging(const AwgHelperStorage *storage) {
   return fsync(storage->staging) == 0;
 }
 
 gboolean
 awg_helper_storage_get_config_identity(const AwgHelperStorage *storage,
                                        const char *config_name,
-                                       AwgHelperStorageIdentity *identity)
-{
+                                       AwgHelperStorageIdentity *identity) {
   struct stat *status = &identity->status;
 
-  return fstatat(storage->config,
-                 config_name,
-                 status,
-                 AT_SYMLINK_NOFOLLOW) == 0 &&
+  return fstatat(storage->config, config_name, status, AT_SYMLINK_NOFOLLOW) ==
+             0 &&
          S_ISREG(status->st_mode) && status->st_uid == 0 &&
          status->st_gid == 0 && status->st_nlink == 1 &&
          (status->st_mode & 0777) == 0600;
 }
 
-gboolean
-awg_helper_storage_config_matches_identity(
-  const AwgHelperStorage *storage,
-  const char *config_name,
-  const AwgHelperStorageIdentity *identity)
-{
+gboolean awg_helper_storage_config_matches_identity(
+    const AwgHelperStorage *storage, const char *config_name,
+    const AwgHelperStorageIdentity *identity) {
   struct stat current;
 
-  return fstatat(storage->config,
-                 config_name,
-                 &current,
-                 AT_SYMLINK_NOFOLLOW) == 0 &&
+  return fstatat(storage->config, config_name, &current, AT_SYMLINK_NOFOLLOW) ==
+             0 &&
          same_config_metadata(&identity->status, &current);
 }
 
-gboolean
-awg_helper_storage_displaced_matches_identity(
-  const AwgHelperStorage *storage,
-  const char *temp_name,
-  const AwgHelperStorageIdentity *identity)
-{
+gboolean awg_helper_storage_displaced_matches_identity(
+    const AwgHelperStorage *storage, const char *temp_name,
+    const AwgHelperStorageIdentity *identity) {
   const struct stat *original = &identity->status;
   struct stat displaced;
 
-  return fstatat(storage->staging,
-                 temp_name,
-                 &displaced,
+  return fstatat(storage->staging, temp_name, &displaced,
                  AT_SYMLINK_NOFOLLOW) == 0 &&
          displaced.st_dev == original->st_dev &&
          displaced.st_ino == original->st_ino &&
@@ -785,11 +670,9 @@ awg_helper_storage_displaced_matches_identity(
 
 AwgHelperStorageIterator *
 awg_helper_storage_iterator_new(const AwgHelperStorage *storage,
-                                AwgHelperStorageArea area)
-{
+                                AwgHelperStorageArea area) {
   AwgHelperStorageIterator *iterator;
-  int scan_fd = openat(storage_area_fd(storage, area),
-                       ".",
+  int scan_fd = openat(storage_area_fd(storage, area), ".",
                        O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
 
   if (scan_fd < 0)
@@ -806,22 +689,19 @@ awg_helper_storage_iterator_new(const AwgHelperStorage *storage,
 
 AwgHelperStorageIteratorResult
 awg_helper_storage_iterator_next(AwgHelperStorageIterator *iterator,
-                                 const char **entry_name)
-{
+                                 const char **entry_name) {
   struct dirent *entry;
 
   errno = 0;
   entry = readdir(iterator->directory);
   if (entry == NULL)
-    return errno == 0 ? AWG_HELPER_STORAGE_ITERATOR_DONE :
-                        AWG_HELPER_STORAGE_ITERATOR_FAILED;
+    return errno == 0 ? AWG_HELPER_STORAGE_ITERATOR_DONE
+                      : AWG_HELPER_STORAGE_ITERATOR_FAILED;
   *entry_name = entry->d_name;
   return AWG_HELPER_STORAGE_ITERATOR_ENTRY;
 }
 
-gboolean
-awg_helper_storage_iterator_free(AwgHelperStorageIterator *iterator)
-{
+gboolean awg_helper_storage_iterator_free(AwgHelperStorageIterator *iterator) {
   gboolean result;
 
   if (iterator == NULL)
@@ -831,9 +711,7 @@ awg_helper_storage_iterator_free(AwgHelperStorageIterator *iterator)
   return result;
 }
 
-static gboolean
-runtime_entry_is_internal(const char *name)
-{
+static gboolean runtime_entry_is_internal(const char *name) {
   if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0 ||
       strcmp(name, ".configs") == 0 || strcmp(name, ".helper.lock") == 0)
     return TRUE;
@@ -842,7 +720,8 @@ runtime_entry_is_internal(const char *name)
    * 20-byte name cannot also be a valid (at most 15-byte) interface name. */
   if (strlen(name) != NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH + 5 ||
       name[0] != 'n' ||
-      strcmp(name + NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH, ".conf") != 0)
+      strcmp(name + NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH, ".conf") !=
+          0)
     return FALSE;
   for (guint i = 1; i < NETWORK_SIDEBAR_AMNEZIAWG_MAX_INTERFACE_LENGTH; i++) {
     if (strchr(temp_config_alphabet, name[i]) == NULL)
@@ -851,17 +730,13 @@ runtime_entry_is_internal(const char *name)
   return TRUE;
 }
 
-static gint
-runtime_name_compare(gconstpointer left, gconstpointer right)
-{
-  return strcmp(*(const char * const *) left, *(const char * const *) right);
+static gint runtime_name_compare(gconstpointer left, gconstpointer right) {
+  return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
 
 NetworkSidebarAmneziaWGHelperExit
 awg_helper_storage_list_runtime_names(const AwgHelperStorage *storage,
-                                      gint64 deadline,
-                                      GPtrArray **names_out)
-{
+                                      gint64 deadline, GPtrArray **names_out) {
   g_autoptr(GPtrArray) names = g_ptr_array_new_with_free_func(g_free);
   g_autoptr(GHashTable) seen = g_hash_table_new(g_str_hash, g_str_equal);
   AwgHelperStorageIterator *iterator;
@@ -872,7 +747,8 @@ awg_helper_storage_list_runtime_names(const AwgHelperStorage *storage,
   result = awg_helper_phase_stop_status(deadline);
   if (result != NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SUCCESS)
     return result;
-  iterator = awg_helper_storage_iterator_new(storage, AWG_HELPER_STORAGE_RUNTIME);
+  iterator =
+      awg_helper_storage_iterator_new(storage, AWG_HELPER_STORAGE_RUNTIME);
   if (iterator == NULL)
     return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_RUNTIME_FAILED;
   for (;;) {
@@ -912,12 +788,9 @@ awg_helper_storage_list_runtime_names(const AwgHelperStorage *storage,
   return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SUCCESS;
 }
 
-AwgHelperEntryState
-awg_helper_storage_read_runtime_marker(
-  const AwgHelperStorage *storage,
-  const char *name,
-  NetworkSidebarAmneziaWGRuntimeMarker *marker)
-{
+AwgHelperEntryState awg_helper_storage_read_runtime_marker(
+    const AwgHelperStorage *storage, const char *name,
+    NetworkSidebarAmneziaWGRuntimeMarker *marker) {
   guint8 buffer[NETWORK_SIDEBAR_AMNEZIAWG_MAX_RUNTIME_MARKER_SIZE];
   gsize used = 0;
   struct stat before;
@@ -925,8 +798,8 @@ awg_helper_storage_read_runtime_marker(
   int fd;
 
   if (fstatat(storage->runtime, name, &before, AT_SYMLINK_NOFOLLOW) != 0)
-    return errno == ENOENT ? AWG_HELPER_ENTRY_MISSING :
-                            AWG_HELPER_ENTRY_INVALID;
+    return errno == ENOENT ? AWG_HELPER_ENTRY_MISSING
+                           : AWG_HELPER_ENTRY_INVALID;
   if (!S_ISREG(before.st_mode) || before.st_uid != 0 || before.st_gid != 0 ||
       before.st_nlink != 1 || (before.st_mode & 0777) != 0644)
     return AWG_HELPER_ENTRY_INVALID;
@@ -951,7 +824,7 @@ awg_helper_storage_read_runtime_marker(
     }
     if (count == 0)
       break;
-    used += (gsize) count;
+    used += (gsize)count;
   }
   if (used == sizeof(buffer)) {
     guint8 extra;
@@ -966,23 +839,20 @@ awg_helper_storage_read_runtime_marker(
     }
   }
   close(fd);
-  return network_sidebar_amneziawg_runtime_marker_parse(buffer, used, marker) ?
-    AWG_HELPER_ENTRY_VALID : AWG_HELPER_ENTRY_INVALID;
+  return network_sidebar_amneziawg_runtime_marker_parse(buffer, used, marker)
+             ? AWG_HELPER_ENTRY_VALID
+             : AWG_HELPER_ENTRY_INVALID;
 }
 
-gboolean
-awg_helper_storage_write_runtime_marker(
-  const AwgHelperStorage *storage,
-  const char *name,
-  const NetworkSidebarAmneziaWGRuntimeMarker *marker)
-{
+gboolean awg_helper_storage_write_runtime_marker(
+    const AwgHelperStorage *storage, const char *name,
+    const NetworkSidebarAmneziaWGRuntimeMarker *marker) {
   guint8 *contents = NULL;
   gsize length = 0;
   gboolean result;
 
-  if (!network_sidebar_amneziawg_runtime_marker_serialize(marker,
-                                                           &contents,
-                                                           &length))
+  if (!network_sidebar_amneziawg_runtime_marker_serialize(marker, &contents,
+                                                          &length))
     return FALSE;
   result = atomic_write_at(storage->runtime, name, contents, length, 0644);
   network_sidebar_amneziawg_secret_free(contents, length);

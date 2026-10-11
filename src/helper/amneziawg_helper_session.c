@@ -2,43 +2,37 @@
 
 #include "amneziawg/link_identity.h"
 
-AwgHelperOwnedLinkState
-awg_helper_session_owned_link_state(
-  const char *name,
-  const NetworkSidebarAmneziaWGRuntimeMarker *marker,
-  NetworkSidebarAmneziaWGLinkObservation *observation)
-{
-  NetworkSidebarAmneziaWGLinkObservation current = { 0 };
+AwgHelperOwnedLinkState awg_helper_session_owned_link_state(
+    const char *name, const NetworkSidebarAmneziaWGRuntimeMarker *marker,
+    NetworkSidebarAmneziaWGLinkObservation *observation) {
+  NetworkSidebarAmneziaWGLinkObservation current = {0};
 
-  if (marker == NULL ||
-      !network_sidebar_amneziawg_link_observe(name, marker->link_token, &current))
+  if (marker == NULL || !network_sidebar_amneziawg_link_observe(
+                            name, marker->link_token, &current))
     return AWG_HELPER_OWNED_LINK_UNKNOWN;
   if (observation != NULL)
     *observation = current;
   if (current.token_matches > 1)
     return AWG_HELPER_OWNED_LINK_UNKNOWN;
   if (current.token_matches == 0)
-    return current.named_exists ? AWG_HELPER_OWNED_LINK_CONFLICT :
-                                  AWG_HELPER_OWNED_LINK_ABSENT;
+    return current.named_exists ? AWG_HELPER_OWNED_LINK_CONFLICT
+                                : AWG_HELPER_OWNED_LINK_ABSENT;
   if (!current.token_has_expected_name ||
-      (current.named_exists && current.named_ifindex != current.token_ifindex) ||
+      (current.named_exists &&
+       current.named_ifindex != current.token_ifindex) ||
       (marker->ifindex != 0 && marker->ifindex != current.token_ifindex))
     return AWG_HELPER_OWNED_LINK_CONFLICT;
   return AWG_HELPER_OWNED_LINK_PRESENT;
 }
 
-NetworkSidebarAmneziaWGHelperExit
-awg_helper_session_runtime_state(
-  const AwgHelperStorage *storage,
-  const char *name,
-  gboolean *has_marker,
-  gboolean *has_interface,
-  NetworkSidebarAmneziaWGRuntimeMarker *marker_value)
-{
-  NetworkSidebarAmneziaWGRuntimeMarker parsed_marker = { 0 };
-  AwgHelperEntryState marker = awg_helper_storage_read_runtime_marker(
-    storage, name, &parsed_marker);
-  NetworkSidebarAmneziaWGLinkObservation observation = { 0 };
+NetworkSidebarAmneziaWGHelperExit awg_helper_session_runtime_state(
+    const AwgHelperStorage *storage, const char *name, gboolean *has_marker,
+    gboolean *has_interface,
+    NetworkSidebarAmneziaWGRuntimeMarker *marker_value) {
+  NetworkSidebarAmneziaWGRuntimeMarker parsed_marker = {0};
+  AwgHelperEntryState marker =
+      awg_helper_storage_read_runtime_marker(storage, name, &parsed_marker);
+  NetworkSidebarAmneziaWGLinkObservation observation = {0};
   AwgHelperOwnedLinkState owned_state;
 
   *has_marker = FALSE;
@@ -63,16 +57,12 @@ awg_helper_session_runtime_state(
   return NETWORK_SIDEBAR_AMNEZIAWG_HELPER_SUCCESS;
 }
 
-NetworkSidebarAmneziaWGHelperExit
-awg_helper_session_refresh_owned_interface(
-  const AwgHelperStorage *storage,
-  const char *name,
-  NetworkSidebarAmneziaWGRuntimeMarker *marker,
-  gboolean *interface_exists)
-{
-  NetworkSidebarAmneziaWGLinkObservation observation = { 0 };
-  AwgHelperOwnedLinkState state = awg_helper_session_owned_link_state(
-    name, marker, &observation);
+NetworkSidebarAmneziaWGHelperExit awg_helper_session_refresh_owned_interface(
+    const AwgHelperStorage *storage, const char *name,
+    NetworkSidebarAmneziaWGRuntimeMarker *marker, gboolean *interface_exists) {
+  NetworkSidebarAmneziaWGLinkObservation observation = {0};
+  AwgHelperOwnedLinkState state =
+      awg_helper_session_owned_link_state(name, marker, &observation);
 
   if (interface_exists != NULL)
     *interface_exists = FALSE;

@@ -60,29 +60,26 @@ typedef struct {
 } NetworkSidebarAmneziaWGRuntimeMarker;
 
 gboolean network_sidebar_amneziawg_ifindex_parse(const guint8 *data,
-                                                gsize length,
-                                                guint *ifindex);
+                                                 gsize length, guint *ifindex);
 gboolean network_sidebar_amneziawg_runtime_marker_parse(
-  const guint8 *data,
-  gsize length,
-  NetworkSidebarAmneziaWGRuntimeMarker *marker);
+    const guint8 *data, gsize length,
+    NetworkSidebarAmneziaWGRuntimeMarker *marker);
 const char *network_sidebar_amneziawg_dns_backend_name(
-  NetworkSidebarAmneziaWGDnsBackend backend);
+    NetworkSidebarAmneziaWGDnsBackend backend);
 const char *network_sidebar_amneziawg_journal_state_name(
-  NetworkSidebarAmneziaWGJournalState state);
+    NetworkSidebarAmneziaWGJournalState state);
 gboolean network_sidebar_amneziawg_runtime_marker_serialize(
-  const NetworkSidebarAmneziaWGRuntimeMarker *marker,
-  guint8 **data,
-  gsize *length);
+    const NetworkSidebarAmneziaWGRuntimeMarker *marker, guint8 **data,
+    gsize *length);
 
 /* Pure classification of a journal and an independently observed link. */
-NetworkSidebarAmneziaWGRuntimeState network_sidebar_amneziawg_runtime_state_classify(
-  gboolean marker_exists,
-  gboolean marker_valid,
-  const NetworkSidebarAmneziaWGRuntimeMarker *marker,
-  const NetworkSidebarAmneziaWGLinkObservation *observation);
+NetworkSidebarAmneziaWGRuntimeState
+network_sidebar_amneziawg_runtime_state_classify(
+    gboolean marker_exists, gboolean marker_valid,
+    const NetworkSidebarAmneziaWGRuntimeMarker *marker,
+    const NetworkSidebarAmneziaWGLinkObservation *observation);
 gboolean network_sidebar_amneziawg_runtime_state_is_recoverable(
-  NetworkSidebarAmneziaWGRuntimeState state);
+    NetworkSidebarAmneziaWGRuntimeState state);
 
 G_END_DECLS
 

@@ -9,8 +9,8 @@ void awg_helper_close_fd(int *fd);
 gboolean awg_helper_write_all(int fd, const guint8 *contents, gsize length);
 
 NetworkSidebarAmneziaWGHelperExit awg_helper_phase_stop_status(gint64 deadline);
-NetworkSidebarAmneziaWGHelperExit awg_helper_phase_failure_or(
-  gint64 deadline,
-  NetworkSidebarAmneziaWGHelperExit fallback);
+NetworkSidebarAmneziaWGHelperExit
+awg_helper_phase_failure_or(gint64 deadline,
+                            NetworkSidebarAmneziaWGHelperExit fallback);
 
 #endif

@@ -45,21 +45,17 @@ static gboolean dispatching_termination = FALSE;
 
 static gboolean begin_group_termination(pid_t child, gint64 deadline);
 
-static void
-close_fd(int *fd)
-{
+static void close_fd(int *fd) {
   if (*fd >= 0)
     close(*fd);
   *fd = -1;
 }
 
-static void
-termination_signal_handler(int signal_number)
-{
+static void termination_signal_handler(int signal_number) {
   int saved_errno = errno;
   unsigned int state = atomic_load(&termination_state);
 
-  (void) signal_number;
+  (void)signal_number;
   while ((state & TERMINATION_COMMITTED) == 0 &&
          (state & TERMINATION_LEVEL_MASK) < TERMINATION_ESCALATED) {
     unsigned int next = state + 1;
@@ -81,35 +77,26 @@ termination_signal_handler(int signal_number)
   errno = saved_errno;
 }
 
-static gboolean
-set_nonblocking(int fd)
-{
+static gboolean set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL);
 
   return flags >= 0 && fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
 }
 
-gboolean
-network_sidebar_amneziawg_process_init(int supervision_fd,
-                                       gint64 cleanup_deadline)
-{
+gboolean network_sidebar_amneziawg_process_init(int supervision_fd,
+                                                gint64 cleanup_deadline) {
   struct ucred credentials;
   socklen_t credentials_length = sizeof(credentials);
   int fd_flags;
   int socket_type;
   socklen_t socket_type_length = sizeof(socket_type);
 
-  if (process_supervision_fd >= 0 || supervision_fd < 0 || cleanup_deadline <= 0 ||
-      getsockopt(supervision_fd,
-                 SOL_SOCKET,
-                 SO_TYPE,
-                 &socket_type,
+  if (process_supervision_fd >= 0 || supervision_fd < 0 ||
+      cleanup_deadline <= 0 ||
+      getsockopt(supervision_fd, SOL_SOCKET, SO_TYPE, &socket_type,
                  &socket_type_length) != 0 ||
       socket_type != SOCK_SEQPACKET ||
-      getsockopt(supervision_fd,
-                 SOL_SOCKET,
-                 SO_PEERCRED,
-                 &credentials,
+      getsockopt(supervision_fd, SOL_SOCKET, SO_PEERCRED, &credentials,
                  &credentials_length) != 0 ||
       credentials.pid != getppid() || credentials.uid != geteuid() ||
       credentials.gid != getegid() || !set_nonblocking(supervision_fd))
@@ -123,14 +110,11 @@ network_sidebar_amneziawg_process_init(int supervision_fd,
   return TRUE;
 }
 
-gboolean
-network_sidebar_amneziawg_process_install_handlers(void)
-{
-  struct sigaction action = { 0 };
+gboolean network_sidebar_amneziawg_process_install_handlers(void) {
+  struct sigaction action = {0};
   int wakeup[2];
 
-  if (termination_read_fd >= 0 ||
-      pipe2(wakeup, O_CLOEXEC | O_NONBLOCK) != 0)
+  if (termination_read_fd >= 0 || pipe2(wakeup, O_CLOEXEC | O_NONBLOCK) != 0)
     return FALSE;
   for (guint i = 0; i < G_N_ELEMENTS(wakeup); i++) {
     if (wakeup[i] <= STDERR_FILENO) {
@@ -157,9 +141,7 @@ network_sidebar_amneziawg_process_install_handlers(void)
          sigaction(SIGINT, &action, NULL) == 0;
 }
 
-gboolean
-network_sidebar_amneziawg_process_termination_requested(void)
-{
+gboolean network_sidebar_amneziawg_process_termination_requested(void) {
   unsigned int state = atomic_load(&termination_state);
   unsigned int level = state & TERMINATION_LEVEL_MASK;
 
@@ -169,21 +151,18 @@ network_sidebar_amneziawg_process_termination_requested(void)
            (state & TERMINATION_CLEANUP) == 0));
 }
 
-gboolean
-network_sidebar_amneziawg_process_is_committed(void)
-{
+gboolean network_sidebar_amneziawg_process_is_committed(void) {
   return (atomic_load(&termination_state) & TERMINATION_COMMITTED) != 0;
 }
 
-void
-network_sidebar_amneziawg_process_dispatch_termination(void)
-{
+void network_sidebar_amneziawg_process_dispatch_termination(void) {
   unsigned int state = atomic_load(&termination_state);
   unsigned int level = state & TERMINATION_LEVEL_MASK;
   int child_signal;
   gint64 deadline;
 
-  if (dispatching_termination || (state & TERMINATION_COMMITTED) != 0 || level == 0 ||
+  if (dispatching_termination || (state & TERMINATION_COMMITTED) != 0 ||
+      level == 0 ||
       (level == TERMINATION_REQUESTED && (state & TERMINATION_CLEANUP) != 0))
     return;
   /* Polling an ACK can observe another cancellation. Finish that exchange
@@ -193,8 +172,8 @@ network_sidebar_amneziawg_process_dispatch_termination(void)
     return;
   dispatching_termination = TRUE;
   deadline = network_sidebar_amneziawg_deadline_cap(
-    network_sidebar_amneziawg_process_monotonic_msec(), process_cleanup_deadline,
-    SUPERVISION_REPLY_TIMEOUT_MSEC);
+      network_sidebar_amneziawg_process_monotonic_msec(),
+      process_cleanup_deadline, SUPERVISION_REPLY_TIMEOUT_MSEC);
   child_signal = level == TERMINATION_ESCALATED ? SIGKILL : SIGTERM;
   if (active_process_group > 0 && level > active_signal_level) {
     active_signal_level = level;
@@ -215,9 +194,7 @@ network_sidebar_amneziawg_process_dispatch_termination(void)
   dispatching_termination = FALSE;
 }
 
-static gboolean
-drain_termination_wakeup(void)
-{
+static gboolean drain_termination_wakeup(void) {
   unsigned char buffer[128];
   gboolean received = FALSE;
   ssize_t count;
@@ -232,19 +209,15 @@ drain_termination_wakeup(void)
   return received;
 }
 
-int
-network_sidebar_amneziawg_process_poll(struct pollfd *fds,
-                                      nfds_t count,
-                                      int timeout_msec)
-{
+int network_sidebar_amneziawg_process_poll(struct pollfd *fds, nfds_t count,
+                                           int timeout_msec) {
   g_autofree struct pollfd *waiting = NULL;
   gboolean wakeup;
   int result;
   int saved_errno;
   int ready = 0;
 
-  if ((count != 0 && fds == NULL) ||
-      count > G_MAXSIZE / sizeof(*waiting) - 1) {
+  if ((count != 0 && fds == NULL) || count > G_MAXSIZE / sizeof(*waiting) - 1) {
     errno = EINVAL;
     return -1;
   }
@@ -259,7 +232,7 @@ network_sidebar_amneziawg_process_poll(struct pollfd *fds,
   waiting = g_new(struct pollfd, count + 1);
   for (nfds_t i = 0; i < count; i++)
     waiting[i] = fds[i];
-  waiting[count] = (struct pollfd) { termination_read_fd, POLLIN, 0 };
+  waiting[count] = (struct pollfd){termination_read_fd, POLLIN, 0};
   result = poll(waiting, count + 1, timeout_msec);
   saved_errno = errno;
   wakeup = drain_termination_wakeup();
@@ -284,9 +257,7 @@ network_sidebar_amneziawg_process_poll(struct pollfd *fds,
   return ready;
 }
 
-void
-network_sidebar_amneziawg_process_set_cleanup_mode(gboolean enabled)
-{
+void network_sidebar_amneziawg_process_set_cleanup_mode(gboolean enabled) {
   network_sidebar_amneziawg_process_dispatch_termination();
   if (enabled)
     atomic_fetch_or(&termination_state, TERMINATION_CLEANUP);
@@ -296,8 +267,7 @@ network_sidebar_amneziawg_process_set_cleanup_mode(gboolean enabled)
 }
 
 gboolean
-network_sidebar_amneziawg_process_block_termination(sigset_t *previous_mask)
-{
+network_sidebar_amneziawg_process_block_termination(sigset_t *previous_mask) {
   sigset_t blocked;
   int error;
 
@@ -312,16 +282,13 @@ network_sidebar_amneziawg_process_block_termination(sigset_t *previous_mask)
   return error == 0;
 }
 
-void
-network_sidebar_amneziawg_process_restore_mask(const sigset_t *previous_mask)
-{
+void network_sidebar_amneziawg_process_restore_mask(
+    const sigset_t *previous_mask) {
   if (previous_mask != NULL)
     pthread_sigmask(SIG_SETMASK, previous_mask, NULL);
 }
 
-static gboolean
-termination_is_pending(void)
-{
+static gboolean termination_is_pending(void) {
   sigset_t pending_mask;
 
   return (atomic_load(&termination_state) & TERMINATION_LEVEL_MASK) != 0 ||
@@ -330,10 +297,8 @@ termination_is_pending(void)
          sigismember(&pending_mask, SIGINT) == 1;
 }
 
-static void
-collect_pending_termination(void)
-{
-  const struct timespec no_wait = { 0 };
+static void collect_pending_termination(void) {
+  const struct timespec no_wait = {0};
   sigset_t signals;
   sigset_t previous_mask;
   int received;
@@ -346,7 +311,7 @@ collect_pending_termination(void)
   if (pthread_sigmask(SIG_BLOCK, &signals, &previous_mask) != 0)
     return;
   while ((atomic_load(&termination_state) & TERMINATION_LEVEL_MASK) <
-           TERMINATION_ESCALATED &&
+             TERMINATION_ESCALATED &&
          !network_sidebar_amneziawg_process_is_committed()) {
     received = sigtimedwait(&signals, NULL, &no_wait);
     if (received > 0)
@@ -357,9 +322,7 @@ collect_pending_termination(void)
   pthread_sigmask(SIG_SETMASK, &previous_mask, NULL);
 }
 
-static gboolean
-commit_operation(gint64 deadline)
-{
+static gboolean commit_operation(gint64 deadline) {
   unsigned int expected = 0;
   gint64 now = network_sidebar_amneziawg_process_monotonic_msec();
 
@@ -369,24 +332,20 @@ commit_operation(gint64 deadline)
     return FALSE;
   /* Cancellation and commit share a single linearization point. */
   return atomic_compare_exchange_strong(&termination_state, &expected,
-                                         TERMINATION_COMMITTED);
+                                        TERMINATION_COMMITTED);
 }
 
-gint64
-network_sidebar_amneziawg_process_monotonic_msec(void)
-{
+gint64 network_sidebar_amneziawg_process_monotonic_msec(void) {
   struct timespec now;
 
   if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
     return -1;
-  return (gint64) now.tv_sec * 1000 + now.tv_nsec / 1000000;
+  return (gint64)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
-static gboolean
-wait_for_supervision_event(short events, gint64 deadline)
-{
+static gboolean wait_for_supervision_event(short events, gint64 deadline) {
   for (;;) {
-    struct pollfd control = { process_supervision_fd, events | POLLHUP, 0 };
+    struct pollfd control = {process_supervision_fd, events | POLLHUP, 0};
     gint64 now;
     int timeout;
     int result;
@@ -395,7 +354,7 @@ wait_for_supervision_event(short events, gint64 deadline)
     now = network_sidebar_amneziawg_process_monotonic_msec();
     if (process_supervision_fd < 0 || now < 0 || now >= deadline)
       return FALSE;
-    timeout = (int) MIN(deadline - now, 25);
+    timeout = (int)MIN(deadline - now, 25);
     result = network_sidebar_amneziawg_process_poll(&control, 1, timeout);
     if (result < 0 && errno == EINTR) {
       /* Finish the bounded exchange even when cancellation starts cleanup. */
@@ -408,25 +367,21 @@ wait_for_supervision_event(short events, gint64 deadline)
   }
 }
 
-static gboolean
-fail_supervision(void)
-{
+static gboolean fail_supervision(void) {
   close_fd(&process_supervision_fd);
   return FALSE;
 }
 
 static gboolean
 supervision_exchange(NetworkSidebarAmneziaWGSupervisionType type,
-                     pid_t process_group,
-                     gint64 outer_deadline)
-{
+                     pid_t process_group, gint64 outer_deadline) {
   NetworkSidebarAmneziaWGSupervisionMessage request = {
-    NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_MAGIC,
-    NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_VERSION,
-    (guint16) type,
-    (gint32) process_group,
-    supervision_sequence,
-    0,
+      NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_MAGIC,
+      NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_VERSION,
+      (guint16)type,
+      (gint32)process_group,
+      supervision_sequence,
+      0,
   };
   NetworkSidebarAmneziaWGSupervisionMessage response;
   gint64 now = network_sidebar_amneziawg_process_monotonic_msec();
@@ -437,18 +392,16 @@ supervision_exchange(NetworkSidebarAmneziaWGSupervisionType type,
       now >= outer_deadline)
     return fail_supervision();
   deadline = network_sidebar_amneziawg_deadline_cap(
-    now, outer_deadline, SUPERVISION_REPLY_TIMEOUT_MSEC);
+      now, outer_deadline, SUPERVISION_REPLY_TIMEOUT_MSEC);
   if (++supervision_sequence == 0)
     supervision_sequence = 1;
 
   for (;;) {
     do
-      count = send(process_supervision_fd,
-                   &request,
-                   sizeof(request),
+      count = send(process_supervision_fd, &request, sizeof(request),
                    MSG_DONTWAIT | MSG_NOSIGNAL);
     while (count < 0 && errno == EINTR);
-    if (count == (ssize_t) sizeof(request))
+    if (count == (ssize_t)sizeof(request))
       break;
     if (count >= 0 || (errno != EAGAIN && errno != EWOULDBLOCK) ||
         !wait_for_supervision_event(POLLOUT, deadline))
@@ -457,20 +410,16 @@ supervision_exchange(NetworkSidebarAmneziaWGSupervisionType type,
 
   for (;;) {
     do
-      count = recv(process_supervision_fd,
-                   &response,
-                   sizeof(response),
+      count = recv(process_supervision_fd, &response, sizeof(response),
                    MSG_DONTWAIT | MSG_TRUNC);
     while (count < 0 && errno == EINTR);
-    if (count == (ssize_t) sizeof(response))
+    if (count == (ssize_t)sizeof(response))
       break;
-    if (count == 0 || count > 0 ||
-        (errno != EAGAIN && errno != EWOULDBLOCK) ||
+    if (count == 0 || count > 0 || (errno != EAGAIN && errno != EWOULDBLOCK) ||
         !wait_for_supervision_event(POLLIN, deadline))
       return fail_supervision();
   }
-  if (response.magic != request.magic ||
-      response.version != request.version ||
+  if (response.magic != request.magic || response.version != request.version ||
       response.type != request.type ||
       response.process_group != request.process_group ||
       response.sequence != request.sequence)
@@ -488,11 +437,8 @@ supervision_exchange(NetworkSidebarAmneziaWGSupervisionType type,
   return TRUE;
 }
 
-static gboolean
-supervision_request(NetworkSidebarAmneziaWGSupervisionType type,
-                    pid_t process_group,
-                    gint64 deadline)
-{
+static gboolean supervision_request(NetworkSidebarAmneziaWGSupervisionType type,
+                                    pid_t process_group, gint64 deadline) {
   gboolean acknowledged;
 
   if (supervision_request_in_progress)
@@ -503,20 +449,16 @@ supervision_request(NetworkSidebarAmneziaWGSupervisionType type,
   return acknowledged;
 }
 
-static gboolean
-begin_group_termination(pid_t child, gint64 deadline)
-{
+static gboolean begin_group_termination(pid_t child, gint64 deadline) {
   if (child != active_process_group && child != retained_process_group)
     return TRUE;
   /* Failure closes the channel: local destruction/reaping still runs, and the
    * service retains independent hard-cleanup authority over every group. */
   return supervision_request(NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_TERMINATING,
-                              child, deadline);
+                             child, deadline);
 }
 
-gboolean
-network_sidebar_amneziawg_process_open_start_gate(int gate[2])
-{
+gboolean network_sidebar_amneziawg_process_open_start_gate(int gate[2]) {
   if (gate == NULL)
     return FALSE;
   gate[0] = -1;
@@ -524,14 +466,10 @@ network_sidebar_amneziawg_process_open_start_gate(int gate[2])
   return pipe2(gate, O_CLOEXEC) == 0;
 }
 
-gboolean
-network_sidebar_amneziawg_process_prepare_child(
-  const sigset_t *previous_mask,
-  pid_t expected_parent,
-  int gate_read_fd,
-  int gate_write_fd)
-{
-  struct sigaction action = { 0 };
+gboolean network_sidebar_amneziawg_process_prepare_child(
+    const sigset_t *previous_mask, pid_t expected_parent, int gate_read_fd,
+    int gate_write_fd) {
+  struct sigaction action = {0};
   sigset_t exec_mask;
   guint8 start = 0;
   ssize_t count;
@@ -560,7 +498,7 @@ network_sidebar_amneziawg_process_prepare_child(
     count = read(gate_read_fd, &start, sizeof(start));
   while (count < 0 && errno == EINTR);
   close(gate_read_fd);
-  if (count != (ssize_t) sizeof(start) || start != 1)
+  if (count != (ssize_t)sizeof(start) || start != 1)
     return FALSE;
   exec_mask = *previous_mask;
   sigdelset(&exec_mask, SIGTERM);
@@ -568,14 +506,9 @@ network_sidebar_amneziawg_process_prepare_child(
   return sigprocmask(SIG_SETMASK, &exec_mask, NULL) == 0;
 }
 
-gboolean
-network_sidebar_amneziawg_process_register_group(
-  pid_t child,
-  const sigset_t *previous_mask,
-  int gate_read_fd,
-  int gate_write_fd,
-  gint64 deadline)
-{
+gboolean network_sidebar_amneziawg_process_register_group(
+    pid_t child, const sigset_t *previous_mask, int gate_read_fd,
+    int gate_write_fd, gint64 deadline) {
   guint8 start = 1;
   gboolean registered = FALSE;
   gboolean started = FALSE;
@@ -589,8 +522,7 @@ network_sidebar_amneziawg_process_register_group(
   if (setpgid(child, child) != 0 && errno != EACCES)
     group_error = errno;
   if (group_error == 0 &&
-      supervision_request(NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_REGISTER,
-                          child,
+      supervision_request(NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_REGISTER, child,
                           deadline)) {
     active_process_group = child;
     active_signal_level = 0;
@@ -600,7 +532,7 @@ network_sidebar_amneziawg_process_register_group(
       do
         count = write(gate_write_fd, &start, sizeof(start));
       while (count < 0 && errno == EINTR);
-      started = count == (ssize_t) sizeof(start);
+      started = count == (ssize_t)sizeof(start);
     }
   }
 
@@ -615,11 +547,9 @@ out:
   return registered && started;
 }
 
-static gboolean
-unregister_group(pid_t child, gint64 deadline)
-{
-  gboolean registered = active_process_group == child ||
-                        retained_process_group == child;
+static gboolean unregister_group(pid_t child, gint64 deadline) {
+  gboolean registered =
+      active_process_group == child || retained_process_group == child;
   gboolean removed = FALSE;
 
   if (registered) {
@@ -634,14 +564,12 @@ unregister_group(pid_t child, gint64 deadline)
       retained_signal_level = 0;
     }
     removed = supervision_request(
-      NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_UNREGISTER, child, deadline);
+        NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_UNREGISTER, child, deadline);
   }
   return !registered || removed;
 }
 
-static void
-retain_group(pid_t child)
-{
+static void retain_group(pid_t child) {
   retained_process_group = child;
   retained_signal_level = active_signal_level;
   if (active_process_group == child) {
@@ -650,11 +578,8 @@ retain_group(pid_t child)
   }
 }
 
-static gboolean
-reap_descendants(pid_t process_group,
-                 guint grace_msec,
-                 gint64 outer_deadline)
-{
+static gboolean reap_descendants(pid_t process_group, guint grace_msec,
+                                 gint64 outer_deadline) {
   gint64 now = network_sidebar_amneziawg_process_monotonic_msec();
   gint64 deadline;
   pid_t waited;
@@ -662,9 +587,8 @@ reap_descendants(pid_t process_group,
 
   if (now < 0)
     return FALSE;
-  deadline = network_sidebar_amneziawg_deadline_cap(now,
-                                                      outer_deadline,
-                                                      grace_msec);
+  deadline =
+      network_sidebar_amneziawg_deadline_cap(now, outer_deadline, grace_msec);
   for (;;) {
     network_sidebar_amneziawg_process_dispatch_termination();
     do
@@ -688,9 +612,7 @@ reap_descendants(pid_t process_group,
   }
 }
 
-static gboolean
-reap_child(pid_t child, gint64 deadline, int *status)
-{
+static gboolean reap_child(pid_t child, gint64 deadline, int *status) {
   pid_t waited;
 
   for (;;) {
@@ -713,26 +635,20 @@ reap_child(pid_t child, gint64 deadline, int *status)
   return TRUE;
 }
 
-static gboolean
-reap_group(pid_t child, gint64 deadline, int *status)
-{
+static gboolean reap_group(pid_t child, gint64 deadline, int *status) {
   return reap_child(child, deadline, status) &&
          reap_descendants(child, GROUP_REAP_GRACE_MSEC, deadline);
 }
 
-static gboolean
-peek_status(pid_t child, gint64 deadline, int *status)
-{
-  siginfo_t child_info = { 0 };
+static gboolean peek_status(pid_t child, gint64 deadline, int *status) {
+  siginfo_t child_info = {0};
   int wait_result;
 
   for (;;) {
     network_sidebar_amneziawg_process_dispatch_termination();
     do
-      wait_result = waitid(P_PID,
-                           (id_t) child,
-                           &child_info,
-                           WEXITED | WNOHANG | WNOWAIT);
+      wait_result =
+          waitid(P_PID, (id_t)child, &child_info, WEXITED | WNOHANG | WNOWAIT);
     while (wait_result != 0 && errno == EINTR);
     if (wait_result != 0)
       return FALSE;
@@ -757,13 +673,8 @@ peek_status(pid_t child, gint64 deadline, int *status)
   return TRUE;
 }
 
-gboolean
-network_sidebar_amneziawg_process_finish_group(
-  pid_t child,
-  gboolean terminate_descendants,
-  gint64 deadline,
-  int *status)
-{
+gboolean network_sidebar_amneziawg_process_finish_group(
+    pid_t child, gboolean terminate_descendants, gint64 deadline, int *status) {
   gboolean reaped;
   gboolean acknowledged = TRUE;
 
@@ -776,8 +687,8 @@ network_sidebar_amneziawg_process_finish_group(
     kill(-child, SIGKILL);
     kill(child, SIGKILL);
   }
-  reaped = terminate_descendants ? reap_group(child, deadline, status) :
-                                   peek_status(child, deadline, status);
+  reaped = terminate_descendants ? reap_group(child, deadline, status)
+                                 : peek_status(child, deadline, status);
   if (reaped && !terminate_descendants) {
     retain_group(child);
     return retained_process_group == child;
@@ -785,11 +696,8 @@ network_sidebar_amneziawg_process_finish_group(
   return reaped && unregister_group(child, deadline) && acknowledged;
 }
 
-gboolean
-network_sidebar_amneziawg_process_release_retained_group(
-  gint64 deadline,
-  gint64 cleanup_deadline)
-{
+gboolean network_sidebar_amneziawg_process_release_retained_group(
+    gint64 deadline, gint64 cleanup_deadline) {
   sigset_t previous_mask;
   pid_t child = retained_process_group;
   gboolean committed = FALSE;
@@ -799,14 +707,16 @@ network_sidebar_amneziawg_process_release_retained_group(
     return FALSE;
   now = network_sidebar_amneziawg_process_monotonic_msec();
   if (termination_is_pending() || now < 0 || now >= deadline ||
-      (child > 0 && deadline - now <=
-        NETWORK_SIDEBAR_AMNEZIAWG_CHILD_CLEANUP_RESERVE_MSEC))
+      (child > 0 &&
+       deadline - now <= NETWORK_SIDEBAR_AMNEZIAWG_CHILD_CLEANUP_RESERVE_MSEC))
     goto out;
 
   /* Keep the exited launcher waitable until commit. A failed attempt must leave
-   * both the live backend and the exact child-reaping obligation for rollback. */
-  if (child > 0 && !supervision_request(
-        NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_RELEASE, child, deadline))
+   * both the live backend and the exact child-reaping obligation for rollback.
+   */
+  if (child > 0 &&
+      !supervision_request(NETWORK_SIDEBAR_AMNEZIAWG_SUPERVISION_RELEASE, child,
+                           deadline))
     goto out;
   committed = commit_operation(deadline);
   if (committed) {
@@ -837,8 +747,7 @@ out:
 }
 
 gboolean
-network_sidebar_amneziawg_process_terminate_retained_group(gint64 deadline)
-{
+network_sidebar_amneziawg_process_terminate_retained_group(gint64 deadline) {
   pid_t child = retained_process_group;
   int ignored_status;
   gboolean acknowledged;
@@ -852,13 +761,8 @@ network_sidebar_amneziawg_process_terminate_retained_group(gint64 deadline)
          unregister_group(child, deadline) && acknowledged;
 }
 
-gboolean
-network_sidebar_amneziawg_process_terminate_group(
-  pid_t child,
-  guint grace_msec,
-  gint64 outer_deadline,
-  int *status)
-{
+gboolean network_sidebar_amneziawg_process_terminate_group(
+    pid_t child, guint grace_msec, gint64 outer_deadline, int *status) {
   gint64 now;
   gint64 deadline;
   gboolean reaped;
@@ -875,15 +779,14 @@ network_sidebar_amneziawg_process_terminate_group(
   now = network_sidebar_amneziawg_process_monotonic_msec();
   if (now < 0)
     return FALSE;
-  deadline = network_sidebar_amneziawg_deadline_cap(now,
-                                                     outer_deadline,
-                                                     grace_msec);
+  deadline =
+      network_sidebar_amneziawg_deadline_cap(now, outer_deadline, grace_msec);
   while (deadline >= 0) {
     gint64 now = network_sidebar_amneziawg_process_monotonic_msec();
 
     if (now < 0 || now >= deadline ||
         (atomic_load(&termination_state) & TERMINATION_LEVEL_MASK) ==
-          TERMINATION_ESCALATED)
+            TERMINATION_ESCALATED)
       break;
     network_sidebar_amneziawg_process_poll(NULL, 0, 25);
   }

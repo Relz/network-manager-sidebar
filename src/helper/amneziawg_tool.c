@@ -21,9 +21,7 @@ struct _AwgTool {
   char *name;
 };
 
-static gboolean
-trusted_directory(int fd)
-{
+static gboolean trusted_directory(int fd) {
   struct stat status;
 
   return fstat(fd, &status) == 0 && S_ISDIR(status.st_mode) &&
@@ -31,9 +29,7 @@ trusted_directory(int fd)
          (status.st_mode & 0022) == 0;
 }
 
-static int
-open_canonical_executable(const char *path)
-{
+static int open_canonical_executable(const char *path) {
   g_auto(GStrv) components = g_strsplit(path + 1, "/", -1);
   int directory = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
   int executable = -1;
@@ -46,11 +42,11 @@ open_canonical_executable(const char *path)
 
     if (components[i + 1] == NULL) {
       executable = openat(directory, components[i],
-                           O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+                          O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
       break;
     }
     next = openat(directory, components[i],
-                   O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+                  O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     close(directory);
     directory = next;
     if (directory < 0 || !trusted_directory(directory))
@@ -66,11 +62,12 @@ out:
   return executable;
 }
 
-static AwgToolAvailability
-open_tool(const char *name, int *fd)
-{
+static AwgToolAvailability open_tool(const char *name, int *fd) {
   static const char *const directories[] = {
-    "/usr/sbin", "/usr/bin", "/sbin", "/bin",
+      "/usr/sbin",
+      "/usr/bin",
+      "/sbin",
+      "/bin",
   };
 
   *fd = -1;
@@ -99,9 +96,7 @@ open_tool(const char *name, int *fd)
   return AWG_TOOL_MISSING;
 }
 
-AwgToolAvailability
-awg_tool_available(const char *name)
-{
+AwgToolAvailability awg_tool_available(const char *name) {
   int fd;
   AwgToolAvailability result = open_tool(name, &fd);
 
@@ -109,9 +104,7 @@ awg_tool_available(const char *name)
   return result;
 }
 
-AwgTool *
-awg_tool_open(const char *name)
-{
+AwgTool *awg_tool_open(const char *name) {
   int fd;
   AwgTool *tool;
 
@@ -123,9 +116,7 @@ awg_tool_open(const char *name)
   return tool;
 }
 
-void
-awg_tool_free(AwgTool *tool)
-{
+void awg_tool_free(AwgTool *tool) {
   if (tool == NULL)
     return;
   close(tool->fd);
@@ -133,16 +124,14 @@ awg_tool_free(AwgTool *tool)
   g_free(tool);
 }
 
-gboolean
-awg_tool_read(AwgTool *tool, const char *const argv[],
-               gint64 outer_deadline, GBytes **output)
-{
+gboolean awg_tool_read(AwgTool *tool, const char *const argv[],
+                       gint64 outer_deadline, GBytes **output) {
   AwgSubprocessRequest request = {
-    .argv = argv,
-    .output_limit = AWG_TOOL_OUTPUT_LIMIT,
-    .timeout_msec = QUERY_TIMEOUT_MSEC,
-    .termination_grace_msec = 250,
-    .completion = AWG_SUBPROCESS_WAIT_FOR_EOF,
+      .argv = argv,
+      .output_limit = AWG_TOOL_OUTPUT_LIMIT,
+      .timeout_msec = QUERY_TIMEOUT_MSEC,
+      .termination_grace_msec = 250,
+      .completion = AWG_SUBPROCESS_WAIT_FOR_EOF,
   };
   AwgSubprocessResult result;
   guint8 *contents = NULL;
@@ -156,7 +145,8 @@ awg_tool_read(AwgTool *tool, const char *const argv[],
   request.executable = tool->fd;
   result = awg_subprocess_run(&request, outer_deadline, &contents, &length);
   success = result.status == AWG_SUBPROCESS_EXITED &&
-            WIFEXITED(result.wait_status) && WEXITSTATUS(result.wait_status) == 0;
+            WIFEXITED(result.wait_status) &&
+            WEXITSTATUS(result.wait_status) == 0;
   if (success)
     *output = g_bytes_new(contents, length);
   network_sidebar_amneziawg_secret_free(contents, length);

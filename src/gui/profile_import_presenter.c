@@ -14,13 +14,11 @@ struct _NetworkSidebarProfileImportPresenter {
 
 NetworkSidebarProfileImportPresenter *
 network_sidebar_profile_import_presenter_new(
-  NetworkSidebarProfileImportInteractionCallback interaction,
-  NetworkSidebarProfileImportSelectedCallback selected,
-  NetworkSidebarProfileImportErrorCallback error,
-  gpointer user_data)
-{
+    NetworkSidebarProfileImportInteractionCallback interaction,
+    NetworkSidebarProfileImportSelectedCallback selected,
+    NetworkSidebarProfileImportErrorCallback error, gpointer user_data) {
   NetworkSidebarProfileImportPresenter *presenter =
-    g_new0(NetworkSidebarProfileImportPresenter, 1);
+      g_new0(NetworkSidebarProfileImportPresenter, 1);
 
   presenter->ref_count = 1;
   g_weak_ref_init(&presenter->parent, NULL);
@@ -32,15 +30,14 @@ network_sidebar_profile_import_presenter_new(
 }
 
 NetworkSidebarProfileImportPresenter *
-network_sidebar_profile_import_presenter_ref(NetworkSidebarProfileImportPresenter *presenter)
-{
+network_sidebar_profile_import_presenter_ref(
+    NetworkSidebarProfileImportPresenter *presenter) {
   g_atomic_int_inc(&presenter->ref_count);
   return presenter;
 }
 
-void
-network_sidebar_profile_import_presenter_dismiss(NetworkSidebarProfileImportPresenter *presenter)
-{
+void network_sidebar_profile_import_presenter_dismiss(
+    NetworkSidebarProfileImportPresenter *presenter) {
   GtkNativeDialog *chooser = g_steal_pointer(&presenter->chooser);
   gulong handler = presenter->response_handler;
 
@@ -53,9 +50,8 @@ network_sidebar_profile_import_presenter_dismiss(NetworkSidebarProfileImportPres
   g_object_unref(chooser);
 }
 
-void
-network_sidebar_profile_import_presenter_stop(NetworkSidebarProfileImportPresenter *presenter)
-{
+void network_sidebar_profile_import_presenter_stop(
+    NetworkSidebarProfileImportPresenter *presenter) {
   if (presenter == NULL || presenter->stopping)
     return;
   presenter->stopping = TRUE;
@@ -67,9 +63,8 @@ network_sidebar_profile_import_presenter_stop(NetworkSidebarProfileImportPresent
   g_weak_ref_set(&presenter->parent, NULL);
 }
 
-void
-network_sidebar_profile_import_presenter_unref(NetworkSidebarProfileImportPresenter *presenter)
-{
+void network_sidebar_profile_import_presenter_unref(
+    NetworkSidebarProfileImportPresenter *presenter) {
   if (presenter == NULL || !g_atomic_int_dec_and_test(&presenter->ref_count))
     return;
   network_sidebar_profile_import_presenter_stop(presenter);
@@ -77,19 +72,16 @@ network_sidebar_profile_import_presenter_unref(NetworkSidebarProfileImportPresen
   g_free(presenter);
 }
 
-void
-network_sidebar_profile_import_presenter_set_parent(
-  NetworkSidebarProfileImportPresenter *presenter, GtkWindow *parent)
-{
+void network_sidebar_profile_import_presenter_set_parent(
+    NetworkSidebarProfileImportPresenter *presenter, GtkWindow *parent) {
   if (!presenter->stopping)
     g_weak_ref_set(&presenter->parent, parent);
 }
 
-void
-network_sidebar_profile_import_presenter_cancel(NetworkSidebarProfileImportPresenter *presenter)
-{
+void network_sidebar_profile_import_presenter_cancel(
+    NetworkSidebarProfileImportPresenter *presenter) {
   g_autoptr(NetworkSidebarProfileImportPresenter) keep_alive =
-    network_sidebar_profile_import_presenter_ref(presenter);
+      network_sidebar_profile_import_presenter_ref(presenter);
 
   if (presenter->chooser == NULL)
     return;
@@ -98,11 +90,10 @@ network_sidebar_profile_import_presenter_cancel(NetworkSidebarProfileImportPrese
     presenter->interaction(FALSE, presenter->user_data);
 }
 
-static void
-import_response_cb(GtkNativeDialog *dialog, int response, gpointer user_data)
-{
+static void import_response_cb(GtkNativeDialog *dialog, int response,
+                               gpointer user_data) {
   g_autoptr(NetworkSidebarProfileImportPresenter) presenter =
-    network_sidebar_profile_import_presenter_ref(user_data);
+      network_sidebar_profile_import_presenter_ref(user_data);
   g_autoptr(GFile) file = NULL;
   g_autofree char *path = NULL;
 
@@ -117,7 +108,8 @@ import_response_cb(GtkNativeDialog *dialog, int response, gpointer user_data)
   if (path == NULL) {
     network_sidebar_profile_import_presenter_cancel(presenter);
     if (presenter->error != NULL)
-      presenter->error("Select a local VPN configuration file", presenter->user_data);
+      presenter->error("Select a local VPN configuration file",
+                       presenter->user_data);
     return;
   }
 
@@ -127,11 +119,10 @@ import_response_cb(GtkNativeDialog *dialog, int response, gpointer user_data)
     presenter->selected(path, presenter->user_data);
 }
 
-void
-network_sidebar_profile_import_presenter_import(NetworkSidebarProfileImportPresenter *presenter)
-{
+void network_sidebar_profile_import_presenter_import(
+    NetworkSidebarProfileImportPresenter *presenter) {
   g_autoptr(NetworkSidebarProfileImportPresenter) keep_alive =
-    network_sidebar_profile_import_presenter_ref(presenter);
+      network_sidebar_profile_import_presenter_ref(presenter);
   g_autoptr(GObject) parent = NULL;
   g_autoptr(GtkNativeDialog) chooser = NULL;
 
@@ -140,18 +131,21 @@ network_sidebar_profile_import_presenter_import(NetworkSidebarProfileImportPrese
   parent = g_weak_ref_get(&presenter->parent);
   if (parent == NULL) {
     if (presenter->error != NULL)
-      presenter->error("Could not show VPN import dialog", presenter->user_data);
+      presenter->error("Could not show VPN import dialog",
+                       presenter->user_data);
     return;
   }
   chooser = GTK_NATIVE_DIALOG(gtk_file_chooser_native_new(
-    "Import VPN Configuration", NULL, GTK_FILE_CHOOSER_ACTION_OPEN, "Import", "Cancel"));
+      "Import VPN Configuration", NULL, GTK_FILE_CHOOSER_ACTION_OPEN, "Import",
+      "Cancel"));
   gtk_native_dialog_set_modal(chooser, FALSE);
   presenter->chooser = g_object_ref(chooser);
   presenter->response_handler = g_signal_connect(
-    chooser, "response", G_CALLBACK(import_response_cb), presenter);
+      chooser, "response", G_CALLBACK(import_response_cb), presenter);
   if (presenter->interaction != NULL)
     presenter->interaction(TRUE, presenter->user_data);
-  /* The callback may synchronously dismiss the chooser or stop the presenter. */
+  /* The callback may synchronously dismiss the chooser or stop the presenter.
+   */
   if (!presenter->stopping && presenter->chooser == chooser)
     gtk_native_dialog_show(presenter->chooser);
 }

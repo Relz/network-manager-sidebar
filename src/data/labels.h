@@ -6,9 +6,12 @@
 G_BEGIN_DECLS
 
 char *network_sidebar_display_text(const char *value, const char *fallback);
-char *network_sidebar_enum_label(GType enum_type, int value, const char *fallback);
-char *network_sidebar_connection_name(NMConnection *connection, const char *fallback);
-char *network_sidebar_active_connection_name(NMActiveConnection *active, const char *fallback);
+char *network_sidebar_enum_label(GType enum_type, int value,
+                                 const char *fallback);
+char *network_sidebar_connection_name(NMConnection *connection,
+                                      const char *fallback);
+char *network_sidebar_active_connection_name(NMActiveConnection *active,
+                                             const char *fallback);
 char *network_sidebar_connection_type_label(const char *connection_type);
 char *network_sidebar_device_type_label(NMDeviceType device_type);
 char *network_sidebar_device_state_label(NMDeviceState state);

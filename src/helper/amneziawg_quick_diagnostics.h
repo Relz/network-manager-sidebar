@@ -18,7 +18,8 @@ typedef enum {
 
 #define AWG_QUICK_DIAGNOSTIC_LINE_LIMIT (16u * 1024u)
 
-/* Zero-initialized, bounded tool-adapter state; never returns raw diagnostics. */
+/* Zero-initialized, bounded tool-adapter state; never returns raw diagnostics.
+ */
 typedef struct {
   guint8 line[AWG_QUICK_DIAGNOSTIC_LINE_LIMIT];
   gsize length;
@@ -32,14 +33,13 @@ typedef struct {
 } AwgQuickDiagnostics;
 
 void awg_quick_diagnostics_consume(const guint8 *data, gsize length,
-                                  gpointer user_data);
+                                   gpointer user_data);
 void awg_quick_diagnostics_finish(AwgQuickDiagnostics *diagnostics);
-NetworkSidebarAmneziaWGHelperExit awg_quick_diagnostics_failure_status(
-  const AwgQuickDiagnostics *diagnostics);
+NetworkSidebarAmneziaWGHelperExit
+awg_quick_diagnostics_failure_status(const AwgQuickDiagnostics *diagnostics);
 /* Only evidence about this failed invocation's phase. The transaction must
  * independently verify link/firewall absence and that DNS was never applied. */
 gboolean awg_quick_diagnostics_failed_before_routes(
-  const AwgQuickDiagnostics *diagnostics,
-  const AwgSubprocessResult *child);
+    const AwgQuickDiagnostics *diagnostics, const AwgSubprocessResult *child);
 
 #endif
