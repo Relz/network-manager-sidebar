@@ -6,14 +6,16 @@ arch=('x86_64')
 url='@GITHUB_SERVER_URL@/@GITHUB_REPOSITORY@'
 license=('GPL-3.0-or-later')
 keywords=('gtk4' 'layer-shell' 'libadwaita' 'network-manager' 'networkmanager' 'sidebar' 'vpn' 'wayland' 'wifi')
+# WireGuard import needs editor 1.32+ built against libnm 1.40+;
+# upgrading runtime libnm alone cannot enable an omitted import path.
 depends=(
   'glib2>=2.68'
   'json-glib>=1.6'
   'gtk4'
   'libadwaita>=1.6'
-  'networkmanager'
+  'networkmanager>=1.40'
   'gtk4-layer-shell'
-  'nm-connection-editor'
+  'nm-connection-editor>=1.32'
   'polkit'
   'dbus'
 )

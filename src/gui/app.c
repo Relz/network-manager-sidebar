@@ -7,6 +7,7 @@
 #include "gui/command_server.h"
 #include "gui/amneziawg_presenter.h"
 #include "gui/layer_shell.h"
+#include "gui/profile_editor_presenter.h"
 #include "gui/styles.h"
 #include "actions/network_actions.h"
 #include "amneziawg/controller.h"
@@ -34,6 +35,7 @@ struct _NetworkSidebarGuiApp {
   AdwApplication *application;
   NMClient *client;
   NetworkSidebarActions *actions;
+  NetworkSidebarProfileEditorPresenter *profile_editor_presenter;
   NetworkSidebarAwgPresenter *amneziawg_presenter;
   NetworkSidebarAwgController *amneziawg;
   NetworkSidebarCommandServer *server;
@@ -49,7 +51,7 @@ struct _NetworkSidebarGuiApp {
   GtkWidget *network_content;
   GtkWidget *connection_info_content;
   GtkWidget *status_content;
-  GtkWidget *vpn_content;
+  GtkWidget *vpn_section;
   GtkWidget *amneziawg_section;
   GtkWidget *wifi_content;
   GtkWidget *scroll_fade_top;
@@ -64,8 +66,9 @@ struct _NetworkSidebarGuiApp {
   guint signal_refresh_source;
   guint periodic_refresh_source;
   GPtrArray *refresh_signal_handlers;
-  gboolean external_dialog_active;
+  guint external_interaction_owners;
   gboolean sidebar_requested_visible;
+  guint deferred_restore_owners;
   gboolean inventory_refresh_requested;
   gboolean shutting_down;
   gboolean outside_click_started;
@@ -124,6 +127,8 @@ network_sidebar_gui_app_run(NetworkSidebarGuiApp *self, int argc, char **argv)
   if (self->unsupported_layer_shell || self->runtime_failure)
     status = 1;
   g_clear_pointer(&self->actions, network_sidebar_actions_unref);
+  g_clear_pointer(&self->profile_editor_presenter,
+                  network_sidebar_profile_editor_presenter_unref);
   g_clear_pointer(&self->amneziawg_presenter,
                   network_sidebar_awg_presenter_unref);
   self->amneziawg = NULL;
@@ -280,6 +285,11 @@ on_shutdown(GApplication *application, gpointer user_data)
   (void) application;
 
   self->shutting_down = TRUE;
+  self->deferred_restore_owners = 0;
+  if (self->profile_editor_presenter != NULL)
+    network_sidebar_profile_editor_presenter_stop(self->profile_editor_presenter);
+  if (self->actions != NULL)
+    network_sidebar_actions_set_parent(self->actions, NULL);
   if (self->amneziawg_presenter != NULL)
     network_sidebar_awg_presenter_stop(self->amneziawg_presenter);
 
@@ -369,12 +379,20 @@ schedule_refresh_callback(guint delay_ms, gpointer user_data)
 }
 
 static void
-external_dialog_callback(gboolean active, gpointer user_data)
+set_external_interaction(NetworkSidebarGuiApp *self,
+                         NetworkSidebarInteractionOwner owner,
+                         gboolean active)
 {
-  NetworkSidebarGuiApp *self = user_data;
+  guint previous_owners = self->external_interaction_owners;
 
-  self->external_dialog_active = active;
-  if (active) {
+  if (active)
+    self->external_interaction_owners |= owner;
+  else
+    self->external_interaction_owners &= ~owner;
+  if (self->external_interaction_owners == previous_owners)
+    return;
+
+  if (self->external_interaction_owners != 0) {
     if (self->amneziawg != NULL)
       network_sidebar_awg_controller_set_inventory_enabled(self->amneziawg,
                                                             FALSE);
@@ -388,17 +406,91 @@ external_dialog_callback(gboolean active, gpointer user_data)
 }
 
 static void
+external_interaction_callback(NetworkSidebarInteractionOwner owner,
+                              NetworkSidebarInteractionEvent event,
+                              gpointer user_data)
+{
+  NetworkSidebarGuiApp *self = user_data;
+  gboolean was_blocking = (self->external_interaction_owners & owner) != 0;
+  gboolean restore = (self->deferred_restore_owners & owner) != 0;
+
+  if (self->shutting_down)
+    return;
+  switch (event) {
+  case NETWORK_SIDEBAR_INTERACTION_BEGIN:
+    self->deferred_restore_owners &= ~owner;
+    set_external_interaction(self, owner, TRUE);
+    break;
+  case NETWORK_SIDEBAR_INTERACTION_DEFER:
+    if (self->sidebar_requested_visible)
+      self->deferred_restore_owners |= owner;
+    self->sidebar_requested_visible = FALSE;
+    self->inventory_refresh_requested = FALSE;
+    set_external_interaction(self, owner, FALSE);
+    break;
+  case NETWORK_SIDEBAR_INTERACTION_END:
+    self->deferred_restore_owners &= ~owner;
+    /* Retain restoration intent even if another owner still blocks mapping. */
+    if (restore)
+      self->sidebar_requested_visible = TRUE;
+    set_external_interaction(self, owner, FALSE);
+    if (restore && !was_blocking && self->external_interaction_owners == 0)
+      present_sidebar(self, FALSE);
+    break;
+  case NETWORK_SIDEBAR_INTERACTION_CANCEL:
+    self->deferred_restore_owners &= ~owner;
+    set_external_interaction(self, owner, FALSE);
+    break;
+  }
+}
+
+static void
+amneziawg_interaction_callback(gboolean active, gpointer user_data)
+{
+  external_interaction_callback(NETWORK_SIDEBAR_INTERACTION_AMNEZIAWG_IMPORT,
+                                 active ? NETWORK_SIDEBAR_INTERACTION_BEGIN :
+                                          NETWORK_SIDEBAR_INTERACTION_END,
+                                 user_data);
+}
+
+static void
+external_error_callback(const char *message, gpointer user_data)
+{
+  NetworkSidebarGuiApp *self = user_data;
+  g_autoptr(AdwToast) toast = NULL;
+
+  if (!self->shutting_down)
+    toast = toast_callback(message, self);
+}
+
+static void
+request_editor_callback(const char *const *args, gpointer user_data)
+{
+  NetworkSidebarGuiApp *self = user_data;
+
+  if (!self->shutting_down)
+    network_sidebar_profile_editor_presenter_open(self->profile_editor_presenter, args);
+}
+
+static void
 ensure_actions(NetworkSidebarGuiApp *self)
 {
+  if (self->profile_editor_presenter == NULL)
+    self->profile_editor_presenter = network_sidebar_profile_editor_presenter_new(
+      external_interaction_callback,
+      schedule_refresh_callback,
+      external_error_callback,
+      self);
   if (self->actions == NULL)
     self->actions = network_sidebar_actions_new(self->client,
                                                 toast_callback,
                                                 schedule_refresh_callback,
+                                                request_editor_callback,
                                                 self);
   if (self->amneziawg_presenter == NULL) {
     self->amneziawg_presenter = network_sidebar_awg_presenter_new(
       schedule_refresh_callback,
-      external_dialog_callback,
+      amneziawg_interaction_callback,
       self);
     self->amneziawg = network_sidebar_awg_presenter_get_controller(
       self->amneziawg_presenter);
@@ -406,6 +498,8 @@ ensure_actions(NetworkSidebarGuiApp *self)
   }
   if (self->window != NULL) {
     network_sidebar_actions_set_parent(self->actions, GTK_WINDOW(self->window));
+    network_sidebar_profile_editor_presenter_set_parent(
+      self->profile_editor_presenter, GTK_WINDOW(self->window));
     if (self->toast_overlay != NULL)
       network_sidebar_awg_presenter_set_parent(
         self->amneziawg_presenter,
@@ -992,13 +1086,13 @@ ensure_window(NetworkSidebarGuiApp *self)
   gtk_box_append(GTK_BOX(self->content), self->network_content);
   gtk_box_append(GTK_BOX(self->content), self->connection_info_content);
   self->status_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
-  self->vpn_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
   self->wifi_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
   ensure_actions(self);
+  self->vpn_section = network_sidebar_vpn_section_new(self->actions, self->profile_editor_presenter);
   self->amneziawg_section = network_sidebar_amneziawg_section_new(self->amneziawg_presenter);
   gtk_widget_set_visible(self->amneziawg_section, FALSE);
   gtk_box_append(GTK_BOX(self->network_content), self->status_content);
-  gtk_box_append(GTK_BOX(self->network_content), self->vpn_content);
+  gtk_box_append(GTK_BOX(self->network_content), self->vpn_section);
   gtk_box_append(GTK_BOX(self->network_content), self->amneziawg_section);
   gtk_box_append(GTK_BOX(self->network_content), self->wifi_content);
 
@@ -1086,7 +1180,7 @@ present_sidebar(NetworkSidebarGuiApp *self, gboolean refresh_inventory)
 
   self->sidebar_requested_visible = TRUE;
   self->inventory_refresh_requested |= refresh_inventory;
-  if (self->external_dialog_active)
+  if (self->external_interaction_owners != 0)
     return;
 
   if (!ensure_window(self))
@@ -1107,6 +1201,7 @@ present_sidebar(NetworkSidebarGuiApp *self, gboolean refresh_inventory)
 static void
 show_sidebar(NetworkSidebarGuiApp *self)
 {
+  self->deferred_restore_owners = 0;
   present_sidebar(self, TRUE);
 }
 
@@ -1114,6 +1209,7 @@ static void
 hide_sidebar(NetworkSidebarGuiApp *self)
 {
   self->sidebar_requested_visible = FALSE;
+  self->deferred_restore_owners = 0;
   self->inventory_refresh_requested = FALSE;
   if (self->amneziawg != NULL)
     network_sidebar_awg_controller_set_inventory_enabled(self->amneziawg,
@@ -1236,13 +1332,11 @@ refresh_content(NetworkSidebarGuiApp *self, gboolean preserve_scroll)
     gtk_widget_set_visible(self->info_button, TRUE);
     gtk_widget_set_visible(self->networking_switch, TRUE);
     network_sidebar_clear_box(GTK_BOX(self->status_content));
-    network_sidebar_clear_box(GTK_BOX(self->vpn_content));
     network_sidebar_clear_box(GTK_BOX(self->wifi_content));
     network_sidebar_add_status_group(GTK_BOX(self->status_content), self->client, self->actions);
-    network_sidebar_add_vpn_group(GTK_BOX(self->vpn_content), self->client, self->actions);
+    network_sidebar_vpn_section_update(self->vpn_section, self->client);
     network_sidebar_add_wifi_group(GTK_BOX(self->wifi_content), self->client, self->actions);
     gtk_widget_set_visible(self->status_content, gtk_widget_get_first_child(self->status_content) != NULL);
-    gtk_widget_set_visible(self->vpn_content, gtk_widget_get_first_child(self->vpn_content) != NULL);
     gtk_widget_set_visible(self->wifi_content, gtk_widget_get_first_child(self->wifi_content) != NULL);
   }
   self->refreshing = FALSE;

@@ -8,7 +8,7 @@ Native GTK4/libadwaita NetworkManager sidebar for Wayland desktops. Opens as a r
 
 - View Ethernet status and disconnect wired connections.
 - Scan and connect to Wi-Fi networks, enter passwords, and toggle Wi-Fi or global networking.
-- Connect and disconnect VPN profiles; use `nm-connection-editor` for advanced profile setup and editing.
+- Import, create, edit, connect, disconnect, and remove VPN and NetworkManager WireGuard profiles.
 - Import, replace, connect, disconnect, and remove AmneziaWG profiles.
 - Inspect connection details, including addresses, routes, DNS, and Wi-Fi information.
 
@@ -22,7 +22,7 @@ Requires a Wayland compositor with layer-shell support and these dependencies:
 
 - GTK4, libadwaita 1.6+, and `gtk4-layer-shell`.
 - GLib/GIO 2.68+ and JSON-GLib 1.6+.
-- NetworkManager/libnm and `nm-connection-editor`.
+- NetworkManager/libnm 1.40+ and `nm-connection-editor` from network-manager-applet 1.32+.
 - System D-Bus, `polkit-gobject-1`, and the polkit authority daemon.
 
 For AmneziaWG, follow the [additional setup below](#amneziawg).
@@ -57,6 +57,16 @@ Waybar's `WAYBAR_OUTPUT_NAME` selects the output automatically. Override it with
 
 Put CSS overrides in `$XDG_CONFIG_HOME/nm-sidebar/nm-sidebar.css` (default: `~/.config/nm-sidebar/nm-sidebar.css`), then run `nm-sidebar --reload-css`.
 
+## VPN and WireGuard
+
+The VPN group lists saved VPN and WireGuard profiles together. **Import** opens a local configuration in `nm-connection-editor`, which detects WireGuard and VPN formats supported by installed VPN plugins. **+ → VPN/WireGuard** creates a profile; **Edit** opens a saved one.
+
+WireGuard requires kernel support but works without VPN plugins, `wg-quick`, or a sidebar-specific helper. Unlike plugin-based VPNs, activation does not require an existing active connection.
+
+- WireGuard import requires `nm-connection-editor` 1.32+ [built against libnm 1.40+](https://github.com/NetworkManager/network-manager-applet/blob/main/src/connection-editor/connection-helpers.c).
+- An active WireGuard row means the interface is configured, not that a peer handshake or traffic succeeds.
+- NetworkManager imports supported settings without executing `wg-quick` hooks. AmneziaWG-specific configurations belong in the separate AmneziaWG group.
+
 ## AmneziaWG
 
 Install `awg-quick` separately to use AmneziaWG. It must be in `/usr/bin`, `/usr/sbin`, `/bin`, or `/sbin`; copies under `/usr/local` are not used. Profiles with `DNS=` need `systemd-resolved` or a supported `resolvconf` installation. Firewall inspection also requires tools for the relevant backends: `nft`, `iptables-save`, and/or `ip6tables-save`.
@@ -76,16 +86,16 @@ polkit.addRule(function(action, subject) {
 });
 ```
 
-Polkit reloads rules automatically, and the sidebar updates access without a restart. The rule allows the selected active local user to list and manage AmneziaWG profiles and tunnels.
+Polkit reloads rules automatically, and the sidebar updates access without a restart.
 
-Use the AmneziaWG section to import local `.conf` files and connect or disconnect profiles. Important behavior:
+AmneziaWG behavior and limitations:
 
-- Saved profiles are root-owned `0600` files in `/etc/amnezia/amneziawg/`, named `<interface>.conf` with a valid interface name.
+- Profiles are stored in `/etc/amnezia/amneziawg/`.
 - Imports accept local regular files up to 1 MiB, excluding symlinks. Command hooks (`PreUp`, `PostUp`, `PreDown`, `PostDown`) and domain-only `DNS=` values are unsupported.
-- Successful import does not guarantee protocol compatibility; `awg` validates it during activation. Replacing a profile overwrites the previous saved configuration.
-- Background profile refreshes keep known, available actions usable. Connect, disconnect, import, replace, and remove commands take priority over a refresh: after authorization, the service stops the inventory helper and waits for cleanup before running the command. One user operation runs at a time; selecting a file or confirming an action allows the current refresh to finish until a command is submitted.
-- Switching disconnects previous sidebar-managed AmneziaWG sessions before connecting the target. If activation fails, previous sessions are not automatically restored. Switching interrupts connectivity and is not a kill switch.
-- Removing an active profile disconnects its sidebar-managed tunnel and verifies runtime cleanup before deleting the saved configuration. Failed cleanup keeps the profile. Externally managed interfaces and tunnels requiring manual intervention remain blocked.
+- `awg` validates protocol compatibility during activation.
+- User operations take priority over background refreshes and run one at a time.
+- Switching disconnects previous sidebar-managed AmneziaWG sessions before connecting the target. If activation fails, previous sessions are not automatically restored.
+- Failed runtime cleanup prevents profile removal. Externally managed interfaces and tunnels requiring manual intervention remain blocked.
 - Tunnels are not configured to start automatically at boot.
 
 ## Development

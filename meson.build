@@ -14,7 +14,7 @@ glib_dep = dependency('glib-2.0', version: '>= 2.68')
 gio_dep = dependency('gio-2.0', version: '>= 2.68')
 gtk_dep = dependency('gtk4')
 adw_dep = dependency('libadwaita-1', version: '>= 1.6')
-nm_dep = dependency('libnm')
+nm_dep = dependency('libnm', version: '>= 1.40')
 layer_shell_dep = dependency('gtk4-layer-shell-0')
 polkit_dep = dependency('polkit-gobject-1')
 json_dep = dependency('json-glib-1.0', version: '>= 1.6')
@@ -91,9 +91,11 @@ core_sources = [
 data_sources = [
   'src/data/connection_state.c',
   'src/data/labels.c',
+  'src/data/vpn_profiles.c',
 ]
 
 action_sources = [
+  'src/actions/editor_session.c',
   'src/actions/network_actions.c',
 ]
 
@@ -123,6 +125,8 @@ executable(
     'src/gui/command_server.c',
     'src/gui/layer_shell.c',
     'src/gui/main.c',
+    'src/gui/profile_editor_presenter.c',
+    'src/gui/profile_import_presenter.c',
     'src/gui/styles.c',
   ] + core_sources + data_sources + action_sources + section_sources + amneziawg_gui_sources,
   dependencies: [glib_dep, gio_dep, gtk_dep, adw_dep, nm_dep, layer_shell_dep, polkit_dep],

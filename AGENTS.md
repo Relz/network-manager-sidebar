@@ -6,6 +6,7 @@
 - Meson installs four executables: GLib-only CLI `nm-sidebar`, GTK/libadwaita/libnm/gtk4-layer-shell GUI `nm-sidebar-gui`, and the privileged AmneziaWG service and helper from `src/helper/`.
 - `src/core/` owns IPC, socket paths, commands, and target-output parsing; `src/gui/app.c` handles GTK application lifecycle and command dispatch; `src/gui/layer_shell.c` handles monitor anchoring.
 - NetworkManager side effects belong in `src/actions/network_actions.c`; read-only data helpers live in `src/data/`; UI sections live in `src/sections/`; app CSS is `nm-sidebar.css`.
+- `src/gui/profile_editor_presenter.{c,h}` coordinates import/edit flows via `profile_import_presenter.{c,h}` and `src/actions/editor_session.{c,h}`. `src/gui/app.c` owns visibility and owner-scoped restoration via `external_interaction.h`; explicit visibility commands override deferred restoration.
 
 ### AmneziaWG
 
@@ -28,6 +29,7 @@
 ## NetworkManager
 
 - Use `nm-connection-editor` for advanced profile create/edit/import flows instead of building full NetworkManager profile editors here.
+- `src/actions/editor_session.c` tracks editor application completion, not individual windows: after a forwarded command exits, it waits for the `org.gnome.nm_connection_editor` owner to disappear. A separately opened connection-list window may keep the sidebar hidden after save/cancel. Accept this limitation; do not flag or fix it unless explicitly requested.
 - Ask before adding new behavior that disables networking/Wi-Fi, disconnects connections, or removes active connections unless the user explicitly requested it.
 - Never hard-code Wi-Fi passwords, VPN credentials, or user-specific NetworkManager connection data.
 

@@ -5,7 +5,6 @@
 
 #include <adwaita.h>
 #include <string.h>
-#include <unistd.h>
 
 #define WIFI_SCAN_THROTTLE_SECONDS 15
 #define WIFI_PASSWORD_MIN_LENGTH 8
@@ -18,6 +17,7 @@ struct _NetworkSidebarActions {
   GtkWindow *parent;
   NetworkSidebarToastCallback toast;
   NetworkSidebarScheduleRefreshCallback schedule_refresh;
+  NetworkSidebarRequestEditorCallback request_editor;
   gpointer user_data;
   gboolean wifi_scan_in_progress;
   guint wifi_scan_pending_requests;
@@ -31,7 +31,6 @@ struct _NetworkSidebarActions {
 typedef struct {
   NetworkSidebarActions *actions;
   char *name;
-  gboolean is_vpn;
   gboolean is_wifi;
   gboolean retry_wifi_auth;
   char *temp_uuid;
@@ -45,7 +44,6 @@ typedef struct {
   NetworkSidebarActions *actions;
   NMActiveConnection *active;
   char *name;
-  gboolean is_vpn;
   gboolean is_wifi;
   gboolean retry_wifi_auth;
   char *temp_uuid;
@@ -62,6 +60,8 @@ static void toast(NetworkSidebarActions *actions, const char *message);
 static void schedule_refresh(NetworkSidebarActions *actions, guint delay_ms);
 static void dismiss_wifi_scan_toast(NetworkSidebarActions *actions);
 static void activation_watch_free(ActivationWatch *watch);
+static void open_editor(NetworkSidebarActions *actions, const char *const *args);
+static void edit_connection_uuid(NetworkSidebarActions *actions, const char *uuid);
 static void prompt_wifi_password(NetworkSidebarActions *actions,
                                  NMDeviceWifi *device,
                                  NMAccessPoint *ap,
@@ -71,6 +71,7 @@ NetworkSidebarActions *
 network_sidebar_actions_new(NMClient *client,
                             NetworkSidebarToastCallback toast_cb,
                             NetworkSidebarScheduleRefreshCallback schedule_refresh_cb,
+                            NetworkSidebarRequestEditorCallback request_editor_cb,
                             gpointer user_data)
 {
   NetworkSidebarActions *actions = g_new0(NetworkSidebarActions, 1);
@@ -78,6 +79,7 @@ network_sidebar_actions_new(NMClient *client,
   actions->client = g_object_ref(client);
   actions->toast = toast_cb;
   actions->schedule_refresh = schedule_refresh_cb;
+  actions->request_editor = request_editor_cb;
   actions->user_data = user_data;
   actions->activation_watches = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) activation_watch_free);
   return actions;
@@ -598,16 +600,11 @@ handle_wifi_auth_failure(NetworkSidebarActions *actions,
     return FALSE;
   cleanup_temporary_wifi_profile(actions, temp_uuid, name);
   if (ap == NULL) {
-    const char *argv[2] = { NULL, NULL };
-    g_autofree char *edit_arg = NULL;
+    const char *uuid = saved_wifi != NULL ? nm_connection_get_uuid(NM_CONNECTION(saved_wifi)) : NULL;
     g_autofree char *message = g_strdup_printf("Wi-Fi password needed for %s; opening editor", name);
 
     toast(actions, message);
-    if (saved_wifi != NULL && nm_connection_get_uuid(NM_CONNECTION(saved_wifi)) != NULL) {
-      edit_arg = g_strdup_printf("--edit=%s", nm_connection_get_uuid(NM_CONNECTION(saved_wifi)));
-      argv[0] = edit_arg;
-    }
-    network_sidebar_actions_open_editor(actions, argv[0] != NULL ? argv : NULL);
+    edit_connection_uuid(actions, uuid);
     return TRUE;
   }
   if (ap_needs_password(ap)) {
@@ -615,19 +612,14 @@ handle_wifi_auth_failure(NetworkSidebarActions *actions,
     toast(actions, message);
     prompt_wifi_password(actions, device, ap, saved_wifi);
   } else {
+    const char *uuid = saved_wifi != NULL ? nm_connection_get_uuid(NM_CONNECTION(saved_wifi)) : NULL;
     g_autofree char *message = g_strdup_printf("Opening advanced Wi-Fi editor for %s", name);
-    const char *argv_create[] = { "--create", "--type=802-11-wireless", NULL };
-    const char *argv_edit[2] = { NULL, NULL };
-    g_autofree char *edit_arg = NULL;
 
     toast(actions, message);
-    if (saved_wifi != NULL && nm_connection_get_uuid(NM_CONNECTION(saved_wifi)) != NULL) {
-      edit_arg = g_strdup_printf("--edit=%s", nm_connection_get_uuid(NM_CONNECTION(saved_wifi)));
-      argv_edit[0] = edit_arg;
-      network_sidebar_actions_open_editor(actions, argv_edit);
-    } else {
-      network_sidebar_actions_open_editor(actions, argv_create);
-    }
+    if (uuid != NULL)
+      edit_connection_uuid(actions, uuid);
+    else
+      network_sidebar_actions_create_profile(actions, NETWORK_SIDEBAR_PROFILE_WIFI);
   }
   return TRUE;
 }
@@ -636,9 +628,13 @@ static gboolean
 activation_watch_poll(ActivationWatch *watch)
 {
   NMActiveConnectionState state = nm_active_connection_get_state(watch->active);
+  const char *type = nm_active_connection_get_connection_type(watch->active);
+  g_autofree char *kind = network_sidebar_connection_type_label(type);
 
   if (state == NM_ACTIVE_CONNECTION_STATE_ACTIVATED) {
-    g_autofree char *message = g_strdup_printf(watch->is_vpn ? "VPN connected: %s" : "Wi-Fi connected: %s", watch->name);
+    g_autofree char *message = g_strdup_printf("%s %s: %s", kind,
+                                               g_strcmp0(type, NM_SETTING_WIREGUARD_SETTING_NAME) == 0 ? "activated" : "connected",
+                                               watch->name);
     toast(watch->actions, message);
     schedule_refresh(watch->actions, 500);
     return FALSE;
@@ -660,7 +656,7 @@ activation_watch_poll(ActivationWatch *watch)
                                          watch->temp_uuid);
     if (!handled) {
       if (!activation_reason_is_user_disconnected(reason)) {
-        g_autofree char *message = activation_failed_message(watch->is_vpn ? "VPN" : "Wi-Fi", watch->name, reason);
+        g_autofree char *message = activation_failed_message(kind, watch->name, reason);
         toast(watch->actions, message);
       }
     }
@@ -669,7 +665,7 @@ activation_watch_poll(ActivationWatch *watch)
   }
 
   if (watch->checks_remaining == 0) {
-    g_autofree char *message = g_strdup_printf(watch->is_vpn ? "VPN is still connecting: %s" : "Wi-Fi is still connecting: %s", watch->name);
+    g_autofree char *message = g_strdup_printf("%s is still connecting: %s", kind, watch->name);
     toast(watch->actions, message);
     schedule_refresh(watch->actions, 500);
     return FALSE;
@@ -707,7 +703,6 @@ start_activation_watch(AsyncAction *async, NMActiveConnection *active)
   watch->actions = network_sidebar_actions_ref(async->actions);
   watch->active = g_object_ref(active);
   watch->name = g_strdup(async->name);
-  watch->is_vpn = async->is_vpn;
   watch->is_wifi = async->is_wifi;
   watch->retry_wifi_auth = async->retry_wifi_auth;
   watch->temp_uuid = g_strdup(async->temp_uuid);
@@ -1321,15 +1316,13 @@ prompt_wifi_password(NetworkSidebarActions *actions,
 void
 network_sidebar_actions_connect_wifi(NetworkSidebarActions *actions, NMDeviceWifi *device, NMAccessPoint *ap)
 {
-  const char *editor_args[] = { "--create", "--type=802-11-wireless", NULL };
-
   if (!ap_has_ssid(ap)) {
     g_autofree char *context = access_point_context(ap);
     g_autofree char *message = context != NULL ?
       g_strdup_printf("Opening advanced Wi-Fi editor for hidden network (%s); enter the SSID", context) :
       g_strdup("Opening advanced Wi-Fi editor for hidden network; enter the SSID");
     toast(actions, message);
-    network_sidebar_actions_open_editor(actions, editor_args);
+    network_sidebar_actions_create_profile(actions, NETWORK_SIDEBAR_PROFILE_WIFI);
     return;
   }
 
@@ -1342,7 +1335,7 @@ network_sidebar_actions_connect_wifi(NetworkSidebarActions *actions, NMDeviceWif
     g_autofree char *ssid = network_sidebar_ap_ssid_text(ap);
     g_autofree char *message = g_strdup_printf("Opening advanced Wi-Fi editor for %s", ssid);
     toast(actions, message);
-    network_sidebar_actions_open_editor(actions, editor_args);
+    network_sidebar_actions_create_profile(actions, NETWORK_SIDEBAR_PROFILE_WIFI);
     return;
   }
 
@@ -1390,7 +1383,6 @@ network_sidebar_actions_activate_vpn_connection(NetworkSidebarActions *actions, 
   }
 
   async = async_action_new(actions, name);
-  async->is_vpn = TRUE;
   {
     g_autofree char *message = g_strdup_printf("Connecting %s...", name);
     toast(actions, message);
@@ -1398,10 +1390,23 @@ network_sidebar_actions_activate_vpn_connection(NetworkSidebarActions *actions, 
   nm_client_activate_connection_async(actions->client,
                                       NM_CONNECTION(connection),
                                       NULL,
-                                      base_path,
-                                      NULL,
-                                      activate_finish_cb,
+                                       base_path,
+                                       NULL,
+                                       activate_finish_cb,
                                       async);
+}
+
+void
+network_sidebar_actions_activate_wireguard_connection(NetworkSidebarActions *actions, NMRemoteConnection *connection)
+{
+  if (!nm_client_networking_get_enabled(actions->client)) {
+    toast(actions, "Enable networking to connect WireGuard");
+    schedule_refresh(actions, 500);
+    return;
+  }
+
+  /* WireGuard is a native virtual device, not a VPN plugin on a base connection. */
+  network_sidebar_actions_activate_connection(actions, NM_CONNECTION(connection), NULL, NULL);
 }
 
 static void
@@ -1579,90 +1584,53 @@ network_sidebar_actions_confirm_delete_connection(NetworkSidebarActions *actions
   adw_alert_dialog_choose(ADW_ALERT_DIALOG(dialog), GTK_WIDGET(actions->parent), NULL, delete_confirm_chosen_cb, data);
 }
 
-static char **
-child_process_env(void)
+static void
+open_editor(NetworkSidebarActions *actions, const char *const *args)
 {
-  char **env = g_get_environ();
-  const char *preload = g_environ_getenv(env, "LD_PRELOAD");
+  g_autoptr(NetworkSidebarActions) keep_alive = network_sidebar_actions_ref(actions);
 
-  env = g_environ_unsetenv(env, "NM_SIDEBAR_LAYER_SHELL_PRELOAD");
-  if (preload != NULL && strstr(preload, "libgtk4-layer-shell.so") != NULL)
-    env = g_environ_unsetenv(env, "LD_PRELOAD");
-  return env;
-}
-
-static char *
-find_program_in_path_env(const char *program, char **env)
-{
-  const char *path = g_environ_getenv(env, "PATH");
-  g_auto(GStrv) directories = NULL;
-
-  if (path == NULL)
-    return g_find_program_in_path(program);
-
-  directories = g_strsplit(path, G_SEARCHPATH_SEPARATOR_S, -1);
-  for (guint i = 0; directories[i] != NULL; i++) {
-    const char *directory = *directories[i] != '\0' ? directories[i] : ".";
-    g_autofree char *candidate = g_build_filename(directory, program, NULL);
-
-    if (g_file_test(candidate, G_FILE_TEST_IS_EXECUTABLE))
-      return g_steal_pointer(&candidate);
-  }
-
-  return NULL;
+  if (actions->parent != NULL && actions->request_editor != NULL)
+    actions->request_editor(args, actions->user_data);
 }
 
 static void
-editor_child_setup(gpointer user_data)
+edit_connection_uuid(NetworkSidebarActions *actions, const char *uuid)
 {
-  (void) user_data;
-  setsid();
-}
+  g_autofree char *edit_arg = NULL;
+  const char *argv[2] = { NULL, NULL };
 
-gboolean
-network_sidebar_actions_connection_editor_available(void)
-{
-  g_auto(GStrv) env = child_process_env();
-  g_autofree char *path = find_program_in_path_env("nm-connection-editor", env);
-  return path != NULL;
-}
-
-void
-network_sidebar_actions_open_editor(NetworkSidebarActions *actions, const char *const *args)
-{
-  g_autoptr(GPtrArray) argv = g_ptr_array_new_with_free_func(g_free);
-  g_auto(GStrv) env = child_process_env();
-  g_autofree char *editor_path = find_program_in_path_env("nm-connection-editor", env);
-  g_autoptr(GError) error = NULL;
-
-  g_ptr_array_add(argv, g_strdup(editor_path != NULL ? editor_path : "nm-connection-editor"));
-  for (guint i = 0; args != NULL && args[i] != NULL; i++)
-    g_ptr_array_add(argv, g_strdup(args[i]));
-  g_ptr_array_add(argv, NULL);
-
-  if (!g_spawn_async(NULL,
-                     (char **) argv->pdata,
-                     env,
-                     G_SPAWN_SEARCH_PATH_FROM_ENVP | G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
-                     editor_child_setup,
-                     NULL,
-                     NULL,
-                     &error)) {
-    g_autofree char *message = g_strdup_printf("Could not open nm-connection-editor: %s", error != NULL ? error->message : "unknown error");
-    toast(actions, message);
+  if (uuid != NULL) {
+    edit_arg = g_strdup_printf("--edit=%s", uuid);
+    argv[0] = edit_arg;
   }
+  open_editor(actions, argv[0] != NULL ? argv : NULL);
 }
 
 void
 network_sidebar_actions_edit_connection(NetworkSidebarActions *actions, NMRemoteConnection *connection)
 {
   const char *uuid = nm_connection_get_uuid(NM_CONNECTION(connection));
-  g_autofree char *edit_arg = NULL;
-  const char *argv[2] = { NULL, NULL };
 
-  if (uuid != NULL && *uuid != '\0') {
-    edit_arg = g_strdup_printf("--edit=%s", uuid);
-    argv[0] = edit_arg;
+  edit_connection_uuid(actions, uuid != NULL && *uuid != '\0' ? uuid : NULL);
+}
+
+void
+network_sidebar_actions_create_profile(NetworkSidebarActions *actions, NetworkSidebarProfileKind kind)
+{
+  const char *type_arg;
+
+  switch (kind) {
+  case NETWORK_SIDEBAR_PROFILE_WIFI:
+    type_arg = "--type=802-11-wireless";
+    break;
+  case NETWORK_SIDEBAR_PROFILE_VPN:
+    type_arg = "--type=vpn";
+    break;
+  case NETWORK_SIDEBAR_PROFILE_WIREGUARD:
+    type_arg = "--type=wireguard";
+    break;
+  default:
+    g_return_if_reached();
   }
-  network_sidebar_actions_open_editor(actions, argv[0] != NULL ? argv : NULL);
+  open_editor(actions, (const char *const[]) { "--create", type_arg, NULL });
 }

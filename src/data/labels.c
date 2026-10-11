@@ -293,7 +293,7 @@ network_sidebar_connection_type_label(const char *connection_type)
     return g_strdup("VPN");
   if (g_strcmp0(connection_type, "loopback") == 0)
     return g_strdup("Loopback");
-  if (g_strcmp0(connection_type, "wireguard") == 0)
+  if (g_strcmp0(connection_type, NM_SETTING_WIREGUARD_SETTING_NAME) == 0)
     return g_strdup("WireGuard");
   if (g_strcmp0(connection_type, "ovs-bridge") == 0)
     return g_strdup("OVS bridge");

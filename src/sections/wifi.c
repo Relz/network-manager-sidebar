@@ -653,7 +653,7 @@ static void
 on_add_wifi_clicked(GtkButton *button, gpointer user_data)
 {
   (void) button;
-  network_sidebar_actions_open_editor(user_data, (const char *const[]) { "--create", "--type=802-11-wireless", NULL });
+  network_sidebar_actions_create_profile(user_data, NETWORK_SIDEBAR_PROFILE_WIFI);
 }
 
 static char *

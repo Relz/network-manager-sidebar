@@ -77,16 +77,18 @@ contents:
 archlinux:
   packager: "Relz <relz0071@gmail.com>"
 overrides:
+  # WireGuard import needs editor 1.32+ built against libnm 1.40+;
+  # upgrading runtime libnm alone cannot enable an omitted import path.
   deb:
     depends:
       - libglib2.0-0 (>= 2.68)
       - libjson-glib-1.0-0 (>= 1.6)
       - libgtk-4-1
       - libadwaita-1-0 (>= 1.6)
-      - libnm0
+      - libnm0 (>= 1.40)
       - libgtk4-layer-shell0
-      - network-manager
-      - network-manager-gnome
+      - network-manager (>= 1.40)
+      - network-manager-gnome (>= 1.32)
       - libpolkit-gobject-1-0
       - polkitd
       - dbus
@@ -96,10 +98,10 @@ overrides:
       - json-glib >= 1.6
       - gtk4
       - libadwaita >= 1.6
-      - NetworkManager
-      - NetworkManager-libnm
+      - NetworkManager >= 1.40
+      - NetworkManager-libnm >= 1.40
       - gtk4-layer-shell
-      - nm-connection-editor
+      - nm-connection-editor >= 1.32
       - polkit-libs
       - polkit
       - dbus
@@ -109,9 +111,9 @@ overrides:
       - json-glib>=1.6
       - gtk4
       - libadwaita>=1.6
-      - networkmanager
+      - networkmanager>=1.40
       - gtk4-layer-shell
-      - nm-connection-editor
+      - nm-connection-editor>=1.32
       - polkit
       - dbus
   apk:
@@ -120,9 +122,10 @@ overrides:
       - json-glib>=1.6
       - gtk4.0
       - libadwaita>=1.6
-      - networkmanager
+      - networkmanager>=1.40
+      - libnm>=1.40
       - gtk4-layer-shell
-      - network-manager-applet
+      - network-manager-applet>=1.32
       - "so:libpolkit-gobject-1.so.0"
       - polkit
       - dbus
