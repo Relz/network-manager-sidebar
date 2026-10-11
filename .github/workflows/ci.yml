@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:26.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install native build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            clang-format-22 \
+            meson \
+            ninja-build \
+            pkg-config \
+            libglib2.0-dev \
+            libjson-glib-dev \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            libnm-dev \
+            libpolkit-gobject-1-dev \
+            libgraphene-1.0-dev \
+            libgtk4-layer-shell-dev
+
+      - name: Configure Meson
+        run: meson setup build --prefix=/usr --libdir=lib --buildtype=debugoptimized
+
+      - name: Check C sources and headers
+        run: |
+          clang-format-22 --version
+          ninja -C build clang-format-check
+
+      - name: Build native executables
+        run: meson compile -C build
+
+      - name: Check CLI without a graphical session
+        run: build/nm-sidebar --help
