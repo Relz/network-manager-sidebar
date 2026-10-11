@@ -1,0 +1,6 @@
+option('awg-quick-path', type: 'string', value: '', description: 'Fixed awg-quick executable; empty uses trusted FHS paths')
+option('awg-resolvconf-path', type: 'string', value: '', description: 'Fixed resolvconf executable; empty uses trusted FHS paths')
+option('awg-tool-path', type: 'string', value: '/usr/sbin:/usr/bin:/sbin:/bin', description: 'Build-time search path for privileged inspection tools')
+option('awg-subprocess-path', type: 'string', value: '/usr/sbin:/usr/bin:/sbin:/bin', description: 'Sanitized PATH for privileged subprocesses')
+option('awg-store-paths', type: 'array', value: [], description: 'Explicit trusted Nix store outputs; @prefix@ expands to the install prefix')
+option('awg-systemd-service', type: 'string', value: '', description: 'Optional systemd unit for system D-Bus activation')
