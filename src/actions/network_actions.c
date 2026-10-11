@@ -23,7 +23,6 @@ struct _NetworkSidebarActions {
   gboolean wifi_scan_in_progress;
   guint wifi_scan_pending_requests;
   guint wifi_scan_settle_source;
-  AdwToast *wifi_scan_toast;
   char *wifi_scan_error;
   gint64 last_scan_us;
   GHashTable *activation_watches;
@@ -60,7 +59,6 @@ static AdwToast *toast_with_handle(NetworkSidebarActions *actions,
                                    const char *message);
 static void toast(NetworkSidebarActions *actions, const char *message);
 static void schedule_refresh(NetworkSidebarActions *actions, guint delay_ms);
-static void dismiss_wifi_scan_toast(NetworkSidebarActions *actions);
 static void activation_watch_free(ActivationWatch *watch);
 static void open_editor(NetworkSidebarActions *actions,
                         const char *const *args);
@@ -99,7 +97,6 @@ void network_sidebar_actions_unref(NetworkSidebarActions *actions) {
     return;
   if (actions->wifi_scan_settle_source != 0)
     g_source_remove(actions->wifi_scan_settle_source);
-  dismiss_wifi_scan_toast(actions);
   g_free(actions->wifi_scan_error);
   g_clear_pointer(&actions->activation_watches, g_hash_table_unref);
   g_clear_object(&actions->client);
@@ -711,14 +708,6 @@ static void toast(NetworkSidebarActions *actions, const char *message) {
   g_clear_object(&handle);
 }
 
-static void dismiss_wifi_scan_toast(NetworkSidebarActions *actions) {
-  if (actions->wifi_scan_toast == NULL)
-    return;
-
-  adw_toast_dismiss(actions->wifi_scan_toast);
-  g_clear_object(&actions->wifi_scan_toast);
-}
-
 static void schedule_refresh(NetworkSidebarActions *actions, guint delay_ms) {
   if (actions->schedule_refresh != NULL)
     actions->schedule_refresh(delay_ms, actions->user_data);
@@ -811,7 +800,6 @@ static gboolean finish_scan_settle_cb(gpointer user_data) {
   actions->wifi_scan_settle_source = 0;
   actions->wifi_scan_in_progress = FALSE;
   g_clear_pointer(&actions->wifi_scan_error, g_free);
-  dismiss_wifi_scan_toast(actions);
   schedule_refresh(actions, 1);
   network_sidebar_actions_unref(actions);
   return G_SOURCE_REMOVE;
@@ -830,7 +818,6 @@ static void finish_scan_request_cb(GObject *source, GAsyncResult *result,
         error != NULL ? error->message : "unknown error");
     g_free(actions->wifi_scan_error);
     actions->wifi_scan_error = g_strdup(message);
-    dismiss_wifi_scan_toast(actions);
     toast(actions, message);
   }
 
@@ -874,9 +861,6 @@ void network_sidebar_actions_request_scan(NetworkSidebarActions *actions) {
     g_source_remove(actions->wifi_scan_settle_source);
     actions->wifi_scan_settle_source = 0;
   }
-  dismiss_wifi_scan_toast(actions);
-  actions->wifi_scan_toast =
-      toast_with_handle(actions, "Scanning for Wi-Fi networks...");
   schedule_refresh(actions, 1);
 
   for (guint i = 0; devices != NULL && i < devices->len; i++) {

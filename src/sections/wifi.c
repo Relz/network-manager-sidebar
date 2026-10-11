@@ -915,8 +915,12 @@ static void add_network_rows(GtkListBox *connected_list,
 
 void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
                                     NetworkSidebarActions *actions) {
-  GtkWidget *group = network_sidebar_section_group("Wi-Fi");
+  GtkWidget *section = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+  GtkWidget *group = adw_preferences_group_new();
   GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *title_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *title = gtk_label_new("Wi-Fi");
+  GtkWidget *spinner = adw_spinner_new();
   GtkWidget *add_button =
       network_sidebar_flat_button("list-add-symbolic", "Add Wi-Fi network");
   const GPtrArray *devices = nm_client_get_devices(client);
@@ -934,6 +938,27 @@ void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
   guint available_count = 0;
   guint saved_count = 0;
 
+  gtk_widget_set_hexpand(title_box, TRUE);
+  gtk_widget_set_valign(title_box, GTK_ALIGN_CENTER);
+  gtk_widget_add_css_class(title, "heading");
+  gtk_widget_add_css_class(title, "h4");
+  gtk_label_set_ellipsize(GTK_LABEL(title), PANGO_ELLIPSIZE_END);
+  gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
+  gtk_box_append(GTK_BOX(title_box), title);
+  gtk_widget_set_size_request(spinner, 16, 16);
+  gtk_widget_set_halign(spinner, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(spinner, GTK_ALIGN_CENTER);
+  gtk_widget_set_visible(
+      spinner, network_sidebar_actions_get_wifi_scan_in_progress(actions) &&
+                   nm_client_wireless_hardware_get_enabled(client) &&
+                   nm_client_wireless_get_enabled(client));
+  gtk_widget_set_tooltip_text(spinner, "Scanning for Wi-Fi networks...");
+  gtk_box_append(GTK_BOX(title_box), spinner);
+  gtk_box_append(GTK_BOX(header), title_box);
+  gtk_accessible_update_relation(GTK_ACCESSIBLE(group),
+                                 GTK_ACCESSIBLE_RELATION_LABELLED_BY, title,
+                                 NULL, -1);
+
   g_signal_connect(add_button, "clicked", G_CALLBACK(on_add_wifi_clicked),
                    actions);
   gtk_box_append(GTK_BOX(header), add_button);
@@ -947,7 +972,8 @@ void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
                      actions);
     gtk_box_append(GTK_BOX(header), wifi_switch);
   }
-  adw_preferences_group_set_header_suffix(ADW_PREFERENCES_GROUP(group), header);
+  gtk_box_append(GTK_BOX(section), header);
+  gtk_box_append(GTK_BOX(section), group);
 
   for (guint i = 0; devices != NULL && i < devices->len; i++) {
     NMDevice *device = g_ptr_array_index((GPtrArray *)devices, i);
@@ -964,7 +990,7 @@ void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
                                "network-wireless-symbolic");
     add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions,
                                   saved_profiles);
-    gtk_box_append(content, group);
+    gtk_box_append(content, section);
     return;
   }
   if (!nm_client_wireless_hardware_get_enabled(client)) {
@@ -974,13 +1000,13 @@ void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
         "network-wireless-disabled-symbolic");
     add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions,
                                   saved_profiles);
-    gtk_box_append(content, group);
+    gtk_box_append(content, section);
     return;
   }
   if (!nm_client_wireless_get_enabled(client)) {
     add_saved_profiles_only_group(ADW_PREFERENCES_GROUP(group), client, actions,
                                   saved_profiles);
-    gtk_box_append(content, group);
+    gtk_box_append(content, section);
     return;
   }
 
@@ -1002,7 +1028,7 @@ void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
       network_sidebar_add_notice(ADW_PREFERENCES_GROUP(group),
                                  "Wi-Fi scan failed", scan_error,
                                  "dialog-warning-symbolic");
-    gtk_box_append(content, group);
+    gtk_box_append(content, section);
     return;
   }
 
@@ -1065,5 +1091,5 @@ void network_sidebar_add_wifi_group(GtkBox *content, NMClient *client,
     add_empty_saved_row(GTK_LIST_BOX(saved_list),
                         "No saved networks out of range");
 
-  gtk_box_append(content, group);
+  gtk_box_append(content, section);
 }
