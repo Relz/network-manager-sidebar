@@ -2,6 +2,8 @@
 
 #include "helper/amneziawg_dns.h"
 #include "amneziawg/deadline.h"
+#include "amneziawg_build_config.h"
+#include "helper/amneziawg_executable.h"
 #include "helper/amneziawg_helper_util.h"
 #include "helper/amneziawg_process.h"
 #include "helper/amneziawg_subprocess.h"
@@ -99,17 +101,13 @@ static int open_resolvconf(void) {
       "/sbin/resolvconf",
   };
 
+  if (AWG_RESOLVCONF_PATH[0] != '\0')
+    return awg_executable_open(AWG_RESOLVCONF_PATH, TRUE);
   for (gsize i = 0; i < G_N_ELEMENTS(paths); i++) {
-    struct stat status;
-    int fd = open(paths[i], O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    int fd = awg_executable_open(paths[i], FALSE);
 
-    if (fd < 0)
-      continue;
-    if (fstat(fd, &status) == 0 && S_ISREG(status.st_mode) &&
-        status.st_uid == 0 && status.st_gid == 0 && status.st_nlink == 1 &&
-        (status.st_mode & 0111) != 0 && (status.st_mode & 0022) == 0)
+    if (fd >= 0)
       return fd;
-    close(fd);
   }
   return -1;
 }
